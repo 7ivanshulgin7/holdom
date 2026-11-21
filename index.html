@@ -6,12 +6,17 @@
   <meta name="theme-color" content="#111411">
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="stylesheet" href="style.css">
   <title>holdom — дома</title>
 </head>
 <body>
   <main class="dashboard">
-    <header class="topbar"><div class="brand"><span class="brand-mark">h</span><span>holdom</span></div><div class="home-label"><i></i> ДОМА</div><button class="avatar" aria-label="Настройки">Д</button></header>
+    <header class="topbar"><div class="brand"><span class="brand-mark">h</span><span>holdom</span></div><div class="home-label"><i></i> ДОМА</div><button type="button" id="settings-button" class="avatar" aria-label="Настройки" aria-expanded="false" aria-controls="settings">⚙</button></header>
+    <section id="settings" class="screen-settings hidden" aria-label="Настройки">
+      <label for="keep-screen-on"><input type="checkbox" id="keep-screen-on"> Не гасить экран</label>
+      <p id="screen-status" role="status"></p>
+    </section>
     <section class="hero">
       <div><div id="date" class="date"></div><div id="clock" class="clock">--:--</div><div class="greeting">Добро пожаловать домой <span>✳</span></div></div>
       <div class="weather"><div class="sun">☀</div><div><strong>18°</strong><small>Ясно · Москва</small></div></div>
