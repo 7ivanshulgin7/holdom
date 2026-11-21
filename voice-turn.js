@@ -2,6 +2,8 @@
   'use strict';
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   const rate = 44100;
+  const maxSamples = rate * 8;
+  const preRollSamples = rate * .3;
 
   function supported() {
     return !!(window.isSecureContext !== false && AudioContext &&
@@ -18,13 +20,17 @@
     if (stream) stream.getTracks().forEach(function (track) { track.stop(); });
   }
 
-  function start(address, code, onEvent) {
+  function start(address, code, onEvent, history, actions) {
     const context = new AudioContext();
     let closed = false;
     let stream, input, processor, player, timer, request;
     let samples = 0;
     let position = 0;
     let parts = [];
+    let noiseFloor = .004;
+    let speechTime = 0;
+    let quietTime = 0;
+    let heardSpeech = false;
     context.resume().catch(function () {});
 
     function releaseMicrophone() {
@@ -60,22 +66,22 @@
         return;
       }
       let message = typeof result.text === 'string' ? result.text.slice(0, 280) : '';
+      if (result.transcript) onEvent({ type: 'transcript', text: result.transcript });
+      if (result.action) {
+        onEvent({ type: 'action', name: result.action, transcript: result.transcript });
+        if (closed) return;
+      }
       if (result.draft && typeof result.draft === 'object') {
         const draft = result.draft;
         onEvent({ type: 'draft', title: draft.title, day: draft.day, time: draft.time });
         message = 'Проверьте черновик и нажмите «Сохранить».';
       }
+      onEvent({ type: 'answer', text: result.draft ? '' : message });
       const pcm = atob(result.audio);
       if (!pcm.length || pcm.length % 2 || pcm.length > rate * 2 * 8) {
-        if (message && result.draft && window.speechSynthesis && window.SpeechSynthesisUtterance) {
-          const preview = new SpeechSynthesisUtterance('Черновик готов.');
-          preview.lang = 'ru-RU';
-          window.speechSynthesis.speak(preview);
-        }
         stop(message);
         return;
       }
-      onEvent({ type: 'answer', text: message });
       const buffer = context.createBuffer(1, pcm.length / 2, rate);
       const channel = buffer.getChannelData(0);
       for (let index = 0; index < channel.length; index++) {
@@ -92,7 +98,7 @@
     function send() {
       if (closed || !processor) return;
       releaseMicrophone();
-      if (samples < rate / 5) { stop('Запишите фразу чуть длиннее.'); return; }
+      if (!heardSpeech) { stop('Не услышал вопрос. Попробуйте ещё раз.'); return; }
       onEvent({ type: 'waiting' });
       request = new XMLHttpRequest();
       request.open('POST', address);
@@ -101,13 +107,14 @@
       request.onload = function () {
         if (closed) return;
         if (request.status === 401) { stop('Проверьте код подключения планшета.'); return; }
+        if (request.status === 503) { stop('Проверьте настройки голосовой функции в Яндекс Cloud.'); return; }
         if (request.status !== 200) { stop('Джованни сейчас недоступен. Попробуйте ещё раз.'); return; }
         try { receive(JSON.parse(request.responseText)); }
         catch (_) { stop('Не удалось воспроизвести ответ Джованни.'); }
       };
       request.onerror = function () { stop('Нет связи с облачным Джованни.'); };
       request.ontimeout = function () { stop('Джованни не успел ответить.'); };
-      request.send(JSON.stringify({ code: code, audio: btoa(parts.join('')) }));
+      request.send(JSON.stringify({ code: code, audio: btoa(parts.join('')), history: history, actions: actions }));
       parts = [];
     }
 
@@ -119,9 +126,23 @@
       processor = context.createScriptProcessor(2048, 1, 1);
       const step = context.sampleRate / rate;
       processor.onaudioprocess = function (event) {
+        if (closed || !processor) return;
         const data = event.inputBuffer.getChannelData(0);
+        let energy = 0;
+        for (let index = 0; index < data.length; index++) energy += data[index] * data[index];
+        const level = Math.sqrt(energy / data.length);
+        const duration = data.length / context.sampleRate;
+        const speech = level > Math.max(.009, noiseFloor * 2.6);
+        if (!heardSpeech) {
+          speechTime = speech ? speechTime + duration : 0;
+          if (!speech) noiseFloor += (level - noiseFloor) * .08;
+          if (speechTime >= .12) {
+            heardSpeech = true;
+            clearTimeout(timer);
+          }
+        } else quietTime = speech ? 0 : quietTime + duration;
         const pcm = [];
-        for (; position < data.length && samples < rate * 8; position += step, samples++) {
+        for (; position < data.length && samples < maxSamples; position += step, samples++) {
           const left = Math.floor(position);
           const right = Math.min(left + 1, data.length - 1);
           const sample = data[left] + (data[right] - data[left]) * (position - left);
@@ -130,15 +151,17 @@
         }
         position -= data.length;
         parts.push(String.fromCharCode.apply(null, pcm));
-        if (samples >= rate * 8) send();
+        if (!heardSpeech) {
+          while (samples - parts[0].length / 2 >= preRollSamples) samples -= parts.shift().length / 2;
+        } else if (quietTime >= .8 || samples >= maxSamples) send();
       };
       input.connect(processor);
       processor.connect(context.destination);
-      timer = setTimeout(send, 8200);
+      timer = setTimeout(function () { stop('Не услышал вопрос. Попробуйте ещё раз.'); }, 12000);
       onEvent({ type: 'recording' });
     }).catch(function () { stop('Проверьте разрешение на микрофон.'); });
 
-    return { stop: stop, send: send };
+    return { stop: stop };
   }
 
   window.HoldomVoiceTurn = { supported: supported, start: start };

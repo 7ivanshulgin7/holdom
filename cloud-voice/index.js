@@ -45,9 +45,13 @@ exports.handler = async function (event, context) {
       request.audio.length % 4 || !/^[A-Za-z0-9+/]+={0,2}$/.test(request.audio)) return reply(400, { error: 'audio' });
   const audio = Buffer.from(request.audio, 'base64');
   if (audio.length < rate / 5 || audio.length > maxInput || audio.length % 2) return reply(400, { error: 'audio' });
+  const history = Array.isArray(request.history) ? request.history.slice(-8).filter(item => item &&
+    (item.role === 'user' || item.role === 'assistant') && typeof item.text === 'string') : [];
+  const actions = request.actions && request.actions.draft === true
+    ? { reviewing: request.actions.reviewing === true } : null;
 
   try {
-    return reply(200, await askGiovanni(audio, folder, context.token));
+    return reply(200, await askGiovanni(audio, folder, context.token, history, actions));
   } catch (error) {
     console.warn('Giovanni:', error.stage || 'request failed');
     return reply(502, { error: 'upstream' });
@@ -66,7 +70,20 @@ function readDraft(item) {
   return { title, day: draft.day, time: draft.time };
 }
 
-function askGiovanni(audio, folder, token) {
+function draftAction(transcript, actions) {
+  if (!transcript) return null;
+  const phrase = transcript.toLowerCase().replace(/^[\s«»"']+|[\s«»"'.!?]+$/g, '')
+    .replace(/^джованни[,\s]+/, '').replace(/^нажми(?: кнопку)?\s+/, '').replace(/[«»"']/g, '');
+  if (/^(?:сделай|сделать|создай|запиши) заметку(?:$|[\s:,.!?—-])/.test(phrase)) return 'new_note';
+  if (/^(?:записать дело|добавить дело|открой форму дела)$/.test(phrase)) return 'new_event';
+  if (!actions) return null;
+  if (/^(?:покажи черновик|открой черновик|проверить дело|проверь дело)$/.test(phrase)) return 'review_draft';
+  if (/^(?:отмени|отменить|удали) черновик$/.test(phrase)) return 'discard_draft';
+  if (actions.reviewing && /^(?:да[, ]+)?сохрани(?:ть)? (?:это )?дело$/.test(phrase)) return 'save_draft';
+  return null;
+}
+
+function askGiovanni(audio, folder, token, history, actions) {
   const url = new URL('wss://ai.api.cloud.yandex.net/v1/realtime/openai');
   url.searchParams.set('model', 'gpt://' + folder + '/speech-realtime-deepseek-v4-flash');
   const date = new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeZone: 'Europe/Moscow' }).format(new Date());
@@ -79,9 +96,12 @@ function askGiovanni(audio, folder, token) {
       maxPayload: 1_048_576,
     });
     const timer = setTimeout(() => finish('timeout'), 17000);
+    let transcriptionTimer;
     const chunks = [];
     let bytes = 0;
     let transcript = '';
+    let userTranscript = '';
+    let completed;
     let sent = false;
     let committed = false;
     let finished = false;
@@ -90,12 +110,27 @@ function askGiovanni(audio, folder, token) {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
+      clearTimeout(transcriptionTimer);
       socket.terminate();
       if (stage) reject(Object.assign(new Error('Realtime failed'), { stage }));
       else resolve(result);
     }
 
     function send(event) { socket.send(JSON.stringify(event)); }
+
+    function finishResponse() {
+      if (!completed) return;
+      const action = draftAction(userTranscript, actions);
+      const draft = action || (actions && actions.reviewing) ? null : completed.draft;
+      if (!draft && !action && !bytes && !transcript) return finish('empty response');
+      const evenBytes = bytes - bytes % 2;
+      const actionText = {
+        new_note: 'Открываю заметки.', new_event: 'Открываю форму дела.',
+        review_draft: 'Открываю черновик.', discard_draft: 'Отменяю черновик.', save_draft: 'Сохраняю дело.',
+      };
+      finish(null, { draft, action, transcript: userTranscript, text: action ? actionText[action] : transcript,
+        audio: action ? '' : Buffer.concat(chunks, evenBytes).toString('base64'), rate });
+    }
 
     socket.on('error', () => finish('connection'));
     socket.on('close', () => finish('closed'));
@@ -104,8 +139,9 @@ function askGiovanni(audio, folder, token) {
       session: {
         type: 'realtime',
         instructions: 'Ты Джованни, добродушный итальянский домашний помощник. Отвечай на русском одним коротким предложением. ' +
-          'Сегодня в Москве ' + date + '. Если просят записать дело и известна дата, вызови prepare_event. ' +
-          'Если дата неясна, уточни её. Ты создаёшь только черновик. Календарь тебе недоступен.',
+          'Сегодня в Москве ' + date + '. На вопросы отвечай по существу. Только если явно просят создать новое дело и известна дата, вызови prepare_event. ' +
+          'Если дата неясна, уточни её. Ты создаёшь только черновик. Календарь тебе недоступен.' +
+          (actions ? ' На экране уже есть черновик. Открытие, отмену и сохранение обрабатывает приложение. Не утверждай, что дело сохранено.' : ''),
         output_modalities: ['audio'],
         max_output_tokens: 150,
         audio: {
@@ -137,6 +173,10 @@ function askGiovanni(audio, folder, token) {
         case 'session.updated':
           if (sent) break;
           sent = true;
+          for (const item of history) {
+            send({ type: 'conversation.item.create', item: { type: 'message', role: item.role,
+              content: [{ type: item.role === 'user' ? 'input_text' : 'output_text', text: item.text.slice(0, 280) }] } });
+          }
           for (let offset = 0; offset < audio.length; offset += 32768) {
             send({ type: 'input_audio_buffer.append', audio: audio.subarray(offset, offset + 32768).toString('base64') });
           }
@@ -146,6 +186,17 @@ function askGiovanni(audio, folder, token) {
           if (sent && !committed) {
             committed = true;
             send({ type: 'response.create' });
+          }
+          break;
+        case 'conversation.item.input_audio_transcription.completed':
+          if (typeof message.transcript === 'string') userTranscript = message.transcript.trim().slice(0, 280);
+          if (completed) finishResponse();
+          break;
+        case 'conversation.item.done':
+          if (message.item?.role === 'user' && Array.isArray(message.item.content)) {
+            const audio = message.item.content.find(item => item?.type === 'input_audio' && typeof item.transcript === 'string');
+            if (audio && !userTranscript) userTranscript = audio.transcript.trim().slice(0, 280);
+            if (userTranscript && completed) finishResponse();
           }
           break;
         case 'response.output_audio.delta': {
@@ -164,9 +215,9 @@ function askGiovanni(audio, folder, token) {
           const response = message.response;
           if (!response || response.status !== 'completed') return finish('incomplete response');
           const draft = (Array.isArray(response.output) ? response.output : []).filter(Boolean).map(readDraft).find(Boolean) || null;
-          if (!draft && !bytes && !transcript) return finish('empty response');
-          const evenBytes = bytes - bytes % 2;
-          finish(null, { draft, text: transcript, audio: Buffer.concat(chunks, evenBytes).toString('base64'), rate });
+          completed = { draft };
+          if (userTranscript) finishResponse();
+          else transcriptionTimer = setTimeout(finishResponse, 750);
           break;
         }
         case 'error':

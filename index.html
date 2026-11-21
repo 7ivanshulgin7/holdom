@@ -7,7 +7,7 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=20">
+  <link rel="stylesheet" href="style.css?v=21">
   <title>holdom — дома</title>
 </head>
 <body>
@@ -20,16 +20,19 @@
       <div class="screen-actions">
         <button type="button" id="keep-screen-on" class="quiet-button screen-button" aria-pressed="false">Не гасить экран</button>
         <button type="button" id="fullscreen-button" class="quiet-button screen-button" aria-pressed="false">На весь экран</button>
-        <button type="button" id="reload-button" class="quiet-button screen-button">Обновить</button>
+        <button type="button" id="reload-button" class="quiet-button header-icon" title="Обновить" aria-label="Обновить">↻</button>
+        <button type="button" id="calendar-settings-button" class="quiet-button header-icon"
+          title="Настройки holdom" aria-label="Настройки holdom" aria-expanded="false" aria-controls="calendar-settings">⚙</button>
       </div>
     </header>
     <p id="screen-status" class="screen-status hidden" role="status"></p>
     <p id="fullscreen-status" class="screen-status hidden" role="status"></p>
     <div class="board">
       <div class="left-column">
+        <div class="left-upper">
         <section class="hero" aria-label="Часы Джованни">
           <button type="button" id="jo-add" class="clock-face" aria-label="Открыть Джованни"
-            aria-expanded="false" aria-controls="jo-dialog">
+            aria-controls="jo-chat">
             <span class="clock" aria-hidden="true">
               <span id="clock-hours" class="clock-eye">--</span><span class="clock-colon">:</span><span id="clock-minutes" class="clock-eye">--</span>
             </span>
@@ -39,21 +42,35 @@
           <p id="jo-listening" class="hint" role="status"></p>
           <p id="jo-result" class="hint" role="status"></p>
         </section>
+        <section id="jo-chat" class="panel jo-chat" aria-label="Диалог с Джованни">
+          <div id="jo-chat-messages" class="jo-chat-messages hidden" role="log" aria-label="Реплики"></div>
+          <p id="jo-chat-status" class="hint" role="status"></p>
+          <div class="jo-chat-actions">
+            <button type="button" id="jo-cloud" class="quiet-button primary-button hidden">Задать вопрос</button>
+            <button type="button" id="jo-manual" class="quiet-button">Записать дело</button>
+            <button type="button" id="jo-note" class="quiet-button">Сделать заметку</button>
+            <button type="button" id="jo-review" class="quiet-button hidden">Проверить дело</button>
+            <button type="button" id="jo-discard" class="quiet-button hidden">Отменить черновик</button>
+            <button type="button" id="jo-connect" class="quiet-button hidden">Настроить голос</button>
+          </div>
+        </section>
+        </div>
+        <div class="left-lower">
         <section id="calendar-nearest" class="panel nearest-panel hidden" aria-labelledby="nearest-label">
           <h2 id="nearest-label">Ближайшие дела</h2>
           <ul id="nearest-items" class="nearest-items"></ul>
         </section>
+        </div>
       </div>
       <div class="right-column">
         <section class="panel calendar-panel" aria-labelledby="calendar-title">
           <div class="section-head">
             <h2 id="calendar-title">Кто когда</h2>
-            <button type="button" id="calendar-settings-button" class="quiet-button calendar-settings-button"
-              title="Настройки календаря" aria-label="Настройки календаря" aria-expanded="false" aria-controls="calendar-settings">⚙</button>
           </div>
+          <p id="calendar-board-status" class="hint" role="status"></p>
           <section id="calendar-settings" class="board-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="calendar-settings-heading">
             <div class="panel dialog-panel">
-              <div class="section-head"><h2 id="calendar-settings-heading">Настройки календаря</h2><button type="button" id="calendar-settings-close" class="quiet-button">Закрыть</button></div>
+              <div class="section-head"><h2 id="calendar-settings-heading">Настройки holdom</h2><button type="button" id="calendar-settings-close" class="quiet-button">Закрыть</button></div>
               <label class="calendar-preference"><input id="show-past-days" type="checkbox"> Показывать прошедшие дни</label>
               <label class="theme-preference" for="theme-select">Оформление
                 <select id="theme-select">
@@ -128,27 +145,42 @@
         </section>
       </div>
     </div>
+    <div id="note-dialog" class="board-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="note-heading">
+      <form id="note-form" class="panel dialog-panel jo-form">
+        <div class="section-head">
+          <h2 id="note-heading">Заметки</h2>
+          <button type="button" id="note-close" class="quiet-button">Закрыть</button>
+        </div>
+        <label for="note-text">Новая заметка</label>
+        <textarea id="note-text" rows="3" maxlength="600" required></textarea>
+        <p id="note-status" class="hint" role="status"></p>
+        <button type="submit" class="quiet-button primary-button">Сохранить заметку</button>
+        <ul id="note-list" class="note-list"></ul>
+      </form>
+    </div>
     <div id="jo-dialog" class="board-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="jo-heading">
       <form id="jo-form" class="panel dialog-panel jo-form">
         <div class="section-head"><h2 id="jo-heading">Добавить дело</h2><button type="button" id="jo-close" class="quiet-button">Закрыть</button></div>
-        <button type="button" id="jo-voice" class="quiet-button">Диктовать</button>
-        <button type="button" id="jo-wake" class="quiet-button" aria-pressed="false">Слушать «Джованни»</button>
-        <button type="button" id="jo-cloud" class="quiet-button primary-button hidden" aria-pressed="false">Поговорить с Джованни</button>
-        <label for="jo-title">Дело</label>
-        <input id="jo-title" maxlength="60" placeholder="Например, забрать посылку" autocomplete="off" required>
-        <div class="jo-fields">
-          <div><label for="jo-date">Дата</label><input id="jo-date" type="date" required></div>
-          <div><label for="jo-time">Время</label><input id="jo-time" type="time"></div>
-        </div>
         <p id="jo-status" class="hint" role="status"></p>
-        <p class="hint">Дело будет видно людям этого аккаунта.</p>
-        <button type="submit" id="jo-save" class="quiet-button primary-button">Сохранить</button>
+        <div>
+          <button type="button" id="jo-voice-action" class="quiet-button hidden">Сказать команду</button>
+          <button type="button" id="jo-voice" class="quiet-button">Диктовать дело</button>
+          <button type="button" id="jo-wake" class="quiet-button" aria-pressed="false">Слушать команды для дел</button>
+          <label for="jo-title">Дело</label>
+          <input id="jo-title" maxlength="60" placeholder="Например, забрать посылку" autocomplete="off" required>
+          <div class="jo-fields">
+            <div><label for="jo-date">Дата</label><input id="jo-date" type="date" required></div>
+            <div><label for="jo-time">Время</label><input id="jo-time" type="time"></div>
+          </div>
+          <p id="jo-calendar-required" class="hint hidden">Подключите «Кто когда» в настройках, чтобы сохранить дело.</p>
+          <button type="submit" id="jo-save" class="quiet-button primary-button">Сохранить дело</button>
+        </div>
       </form>
     </div>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=20"></script>
-  <script src="voice-turn.js?v=20"></script>
-  <script src="calendar.js?v=20"></script>
+  <script src="app.js?v=21"></script>
+  <script src="voice-turn.js?v=21"></script>
+  <script src="calendar.js?v=21"></script>
 </body>
 </html>

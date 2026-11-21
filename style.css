@@ -36,9 +36,9 @@ body {
   color: var(--ink);
   font-family: -apple-system, system-ui, "SF Pro Text", Roboto, "Segoe UI", sans-serif;
 }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button { cursor: pointer; touch-action: manipulation; }
-button:focus, input:focus, select:focus { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
 .hidden { display: none !important; }
 
 .dashboard {
@@ -155,7 +155,7 @@ button:focus, input:focus, select:focus { outline: 2px solid var(--accent-ink); 
   letter-spacing: -.065em;
   white-space: nowrap;
 }
-.date { margin-top: 10px; color: var(--muted); font-size: 17px; }
+.date { margin-top: 10px; color: var(--ink); font-size: 22px; font-weight: 600; line-height: 1.2; }
 .panel {
   border-radius: 22px;
   background: var(--card);
@@ -165,7 +165,9 @@ button:focus, input:focus, select:focus { outline: 2px solid var(--accent-ink); 
 .section-head h2 { margin: 0; font-size: 20px; line-height: 1.2; }
 .jo-form { margin: 8px 0 0; }
 .jo-form label { display: block; margin: 8px 0 4px; font-size: 14px; }
-.jo-form input { width: 100%; min-height: 44px; padding: 8px; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 12px; font-size: 16px; }
+.jo-form input, .jo-form textarea { width: 100%; min-height: 44px; padding: 8px; color: var(--ink); background: var(--field); border: 1px solid var(--line); border-radius: 12px; font-size: 16px; }
+.note-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.note-list li { padding: 8px 0; border-top: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: break-word; }
 .jo-fields { display: flex; margin-bottom: 8px; }
 .jo-fields > div { flex: 1; min-width: 0; }
 .jo-fields > div + div { margin-left: 8px; }
@@ -178,7 +180,16 @@ button:focus, input:focus, select:focus { outline: 2px solid var(--accent-ink); 
 .event-info span { display: block; margin-top: 2px; color: var(--muted); font-size: 13px; }
 
 .calendar-connect { margin: 12px 0; }
-.calendar-settings-button { min-width: 36px; min-height: 36px; padding: 0 7px; font-size: 19px; line-height: 1; }
+.header-icon { flex: 0 0 44px; min-width: 44px; padding: 0; font-size: 23px; line-height: 1; }
+.jo-form button + button { margin-left: 4px; }
+.jo-form button:disabled { opacity: .55; cursor: default; }
+.jo-chat { min-height: 0; }
+.jo-chat-messages { max-height: 150px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.jo-chat-message { display: table; max-width: 92%; margin: 0 0 5px; padding: 6px 10px; border-radius: 12px; background: var(--cell); overflow-wrap: break-word; font-size: 14px; }
+.jo-chat-message.is-user { margin-left: auto; background: var(--accent-soft); }
+.jo-chat-sender { display: block; color: var(--muted); font-size: 11px; font-weight: 600; }
+.jo-chat-actions { display: flex; flex-wrap: wrap; }
+.jo-chat-actions button { margin: 3px 5px 0 0; min-height: 36px; }
 .calendar-preference, .theme-preference { display: flex; align-items: center; min-height: 40px; font-size: 15px; }
 .theme-preference { justify-content: space-between; border-top: 1px solid var(--line); }
 .theme-preference select { margin-left: 8px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--accent-ink); }
@@ -316,9 +327,17 @@ button:focus, input:focus, select:focus { outline: 2px solid var(--accent-ink); 
   .left-column { display: flex; flex-direction: column; flex: 0 0 41%; min-width: 0; padding-right: 12px; }
   .right-column { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
   .left-column > *, .right-column > * { flex-shrink: 0; }
-  .hero { padding: 22px 18px; }
-  .clock { font-size: 11vw; }
-  .date { font-size: 19px; }
+  .left-column > .left-upper, .left-column > .left-lower { flex: 1 1 0; min-height: 0; }
+  .left-upper { display: flex; flex-direction: column; padding-bottom: 6px; }
+  .left-lower { display: flex; flex-direction: column; padding-top: 6px; overflow: auto; }
+  .left-upper > .hero { flex-shrink: 0; }
+  .left-upper > .jo-chat { display: flex; flex-direction: column; flex: 1 1 auto; margin-bottom: 0; padding: 6px 10px; }
+  .jo-chat-messages { flex: 1 1 auto; min-height: 0; max-height: none; }
+  .jo-chat-actions, #jo-chat-status { flex-shrink: 0; }
+  .hero { padding: 9px 14px; margin-bottom: 6px; }
+  .clock { font-size: 8vw; }
+  .date { font-size: 25px; }
+  .left-lower .nearest-panel { margin-bottom: 0; }
   .right-column .panel { padding: 7px 11px; margin-bottom: 7px; }
   .right-column > .calendar-panel {
     display: flex;
@@ -350,13 +369,12 @@ button:focus, input:focus, select:focus { outline: 2px solid var(--accent-ink); 
   .event-info { flex: 1; }
 }
 @media (min-width: 1250px) and (orientation: landscape) {
-  .clock { font-size: 132px; }
-  .hero { padding: 30px 28px; }
+  .clock { font-size: 102px; }
 }
 @media (min-width: 700px) and (max-height: 520px) and (orientation: landscape) {
   .hero { padding: 10px 14px; margin-bottom: 7px; }
-  .clock { font-size: 77px; }
-  .date { font-size: 16px; margin-top: 7px; }
+  .clock { font-size: 64px; }
+  .date { font-size: 20px; margin-top: 7px; }
   .nearest-panel { padding: 8px 12px; margin-bottom: 5px; }
   .nearest-items li { padding: 3px 0; }
   .jo-smile { height: 7px; margin-top: 4px; }

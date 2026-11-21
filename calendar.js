@@ -14,6 +14,7 @@
   const peopleStatus = $('#people-status');
   const peopleResults = $('#people-results');
   const status = $('#calendar-status');
+  const boardStatus = $('#calendar-board-status');
   const feed = $('#calendar-feed');
   const showPastControl = $('#show-past-days');
   const showPastStorageKey = 'holdom-show-past-days';
@@ -40,6 +41,19 @@
   const joVoice = $('#jo-voice');
   const joWake = $('#jo-wake');
   const joCloud = $('#jo-cloud');
+  const joChatMessages = $('#jo-chat-messages');
+  const joChatStatus = $('#jo-chat-status');
+  const joManual = $('#jo-manual');
+  const joNote = $('#jo-note');
+  const noteDialog = $('#note-dialog');
+  const noteText = $('#note-text');
+  const noteStatus = $('#note-status');
+  const noteList = $('#note-list');
+  const notesStorageKey = 'holdom-notes';
+  const joReview = $('#jo-review');
+  const joDiscard = $('#jo-discard');
+  const joConnect = $('#jo-connect');
+  const joVoiceAction = $('#jo-voice-action');
   const voiceServerForm = $('#voice-server-form');
   const voiceServerAddress = $('#voice-server-address');
   const voiceServerCode = $('#voice-server-code');
@@ -78,8 +92,11 @@
   let voiceConfirm = false;
   let voiceSettings = null;
   let voiceReadFailed = false;
-  let recordingCloudVoice = false;
   let cloudVoice = null;
+  let chatHistory = [];
+  let chatStarted = false;
+  let cloudDraft = null;
+  let reviewingCloudDraft = false;
   let expandingFeed = false;
 
   try { key = localStorage.getItem(storageKey) || ''; } catch (_) {}
@@ -108,8 +125,8 @@
     }
     dashboard.style.height = window.innerHeight + 'px';
     const room = gridSpace.clientHeight - calendarWeekdays.offsetHeight - 28;
-    const cellSize = Math.max(0, Math.floor(Math.min(gridSpace.clientWidth / 7, room / 6)));
-    monthGrid.style.maxWidth = (cellSize * 7) + 'px';
+    const cellSize = Math.min(Math.floor(gridSpace.clientWidth / 7), Math.max(26, Math.floor(room / 6)));
+    monthGrid.style.maxWidth = cellSize > 0 ? (cellSize * 7) + 'px' : '';
   }
 
   function entriesFor(day, people) {
@@ -538,11 +555,13 @@
     fitMonth();
   }
 
-  function showConnection(message) {
+  function showConnection(message, connected) {
     form.classList.toggle('hidden', !!key);
     disconnect.classList.toggle('hidden', !key);
     peoplePanel.classList.toggle('hidden', !state);
     status.textContent = message;
+    boardStatus.textContent = connected ? '' : (message || (!key ? 'Подключите календарь в настройках.' : ''));
+    syncCloudVoiceButton();
     fitMonth();
   }
 
@@ -564,6 +583,8 @@
       pendingPeopleRequest.abort();
     }
     foundPeople = [];
+    cloudDraft = null;
+    syncCloudVoiceButton();
     peoplePanel.classList.add('hidden');
     peopleQuery.value = '';
     peopleStatus.textContent = '';
@@ -576,10 +597,10 @@
 
   function setJoOpen(open) {
     joDialog.classList.toggle('hidden', !open);
-    joAdd.setAttribute('aria-expanded', String(open));
     if (open) stopWakeRecognition();
     else {
       stopCloudVoice('');
+      reviewingCloudDraft = false;
       voiceConfirm = false;
       scheduleWake();
     }
@@ -614,8 +635,14 @@
   }
 
   function syncCloudVoiceButton() {
-    joCloud.classList.toggle('hidden', !voiceSettings);
-    joCloud.disabled = !!cloudVoice || !window.HoldomVoiceTurn || !window.HoldomVoiceTurn.supported();
+    joCloud.classList.toggle('hidden', !voiceSettings || !chatStarted);
+    joCloud.disabled = !window.HoldomVoiceTurn || !window.HoldomVoiceTurn.supported();
+    joConnect.classList.toggle('hidden', !!voiceSettings || !chatStarted);
+    joManual.classList.toggle('hidden', !!cloudDraft);
+    joNote.classList.toggle('hidden', !!cloudDraft);
+    joReview.classList.toggle('hidden', !cloudDraft);
+    joDiscard.classList.toggle('hidden', !cloudDraft);
+    joVoiceAction.classList.toggle('hidden', !reviewingCloudDraft || !voiceSettings);
   }
 
   function setVoiceStatus(message, stateClass) {
@@ -628,40 +655,123 @@
     if (cloudVoice) cloudVoice.stop(message);
   }
 
+  function addChatMessage(role, value) {
+    const text = typeof value === 'string' ? value.trim().slice(0, 280) : '';
+    if (!text) return;
+    chatHistory.push({ role: role, text: text });
+    chatHistory = chatHistory.slice(-8);
+    const message = document.createElement('p');
+    message.className = 'jo-chat-message' + (role === 'user' ? ' is-user' : '');
+    const sender = document.createElement('span');
+    sender.className = 'jo-chat-sender';
+    sender.textContent = role === 'user' ? 'Вы' : 'Джованни';
+    message.appendChild(sender);
+    message.appendChild(document.createTextNode(text));
+    joChatMessages.appendChild(message);
+    if (joChatMessages.childNodes.length > 8) joChatMessages.removeChild(joChatMessages.firstChild);
+    joChatMessages.classList.remove('hidden');
+    joChatMessages.scrollTop = joChatMessages.scrollHeight;
+  }
+
+  function openJoDraft(draft) {
+    if (!draft && !state) { setSettingsOpen(true); return; }
+    setJoOpen(true);
+    reviewingCloudDraft = !!draft;
+    joVoice.classList.toggle('hidden', !!voiceSettings);
+    joWake.classList.toggle('hidden', !!voiceSettings);
+    $('#jo-calendar-required').classList.toggle('hidden', !!state);
+    joSave.disabled = !state || !!saveRequest;
+    joStatus.textContent = draft ? 'Проверьте дело, дату и время.' : '';
+    if (draft) {
+      joTitle.value = draft.title;
+      joDate.value = draft.day;
+      joTime.value = draft.time;
+    } else if (!joDate.value) joDate.value = dayKey(new Date());
+    syncCloudVoiceButton();
+    joTitle.focus();
+  }
+
+  function discardCloudDraft() {
+    cloudDraft = null;
+    if (reviewingCloudDraft) resetJo();
+    syncCloudVoiceButton();
+    joChatStatus.textContent = 'Черновик отменён.';
+  }
+
+  function loadNotes() {
+    const items = JSON.parse(localStorage.getItem(notesStorageKey) || '[]');
+    return Array.isArray(items) ? items.filter(function (item) { return typeof item === 'string'; }) : [];
+  }
+
+  function renderNotes(items) {
+    noteList.textContent = '';
+    items.forEach(function (text) {
+      const row = document.createElement('li');
+      row.textContent = text;
+      noteList.appendChild(row);
+    });
+  }
+
+  function openNote(text) {
+    if (reviewingCloudDraft) setJoOpen(false);
+    noteStatus.textContent = '';
+    try { renderNotes(loadNotes()); }
+    catch (_) { noteStatus.textContent = 'Браузер не смог прочитать заметки.'; }
+    if (text) noteText.value = text.slice(0, 600);
+    noteDialog.classList.remove('hidden');
+    noteText.focus();
+  }
+
+  function voiceStatus(message) {
+    joChatStatus.textContent = message;
+    if (reviewingCloudDraft) joStatus.textContent = message;
+  }
+
   function voiceEvent(event) {
     if (event.type === 'closed') {
       cloudVoice = null;
-      recordingCloudVoice = false;
       syncCloudVoiceButton();
-      joCloud.textContent = 'Поговорить с Джованни';
-      joCloud.setAttribute('aria-pressed', 'false');
+      joCloud.textContent = 'Задать вопрос';
+      joVoiceAction.textContent = 'Сказать команду';
+      joAdd.classList.remove('is-listening');
       joVoice.disabled = !SpeechRecognition;
       joWake.disabled = !SpeechRecognition;
-      joStatus.textContent = event.text || '';
+      if (event.text !== undefined) voiceStatus(event.text);
     } else if (event.type === 'recording') {
-      recordingCloudVoice = true;
-      joCloud.disabled = false;
-      joCloud.textContent = 'Отправить фразу';
-      joStatus.textContent = 'Джованни слушает. Скажите фразу и нажмите «Отправить фразу».';
+      joAdd.classList.add('is-listening');
+      voiceStatus('Джованни слушает…');
     } else if (event.type === 'waiting') {
-      recordingCloudVoice = false;
-      joCloud.disabled = true;
-      joCloud.textContent = 'Жду ответа…';
-      joStatus.textContent = 'Джованни готовит ответ…';
-    } else if (event.type === 'answer' && typeof event.text === 'string') {
-      joStatus.textContent = event.text.slice(0, 280);
+      joAdd.classList.remove('is-listening');
+      voiceStatus('Джованни готовит ответ…');
+    } else if (event.type === 'transcript') {
+      addChatMessage('user', event.text);
+    } else if (event.type === 'answer') {
+      addChatMessage('assistant', event.text);
     } else if (event.type === 'draft' && typeof event.title === 'string' &&
         typeof event.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(event.day) &&
         typeof event.time === 'string' && /^(?:(?:[01]\d|2[0-3]):[0-5]\d)?$/.test(event.time)) {
-      joTitle.value = event.title.slice(0, 60);
-      joDate.value = event.day;
-      joTime.value = event.time;
-      joStatus.textContent = 'Проверьте черновик и нажмите «Сохранить».';
+      cloudDraft = { title: event.title.slice(0, 60), day: event.day, time: event.time };
+      addChatMessage('assistant', 'Черновик: ' + cloudDraft.title + ' · ' + cloudDraft.day + (cloudDraft.time ? ' · ' + cloudDraft.time : ''));
+      syncCloudVoiceButton();
+    } else if (event.type === 'action') {
+      if (event.name === 'new_note') {
+        const text = typeof event.transcript === 'string'
+          ? event.transcript.replace(/[«»"']/g, '').replace(/^(?:джованни[, ]+)?(?:нажми(?: кнопку)? +)?(?:сделай|сделать|создай|запиши) заметку[\s:,.!?–—-]*/i, '')
+          : '';
+        openNote(text.trim());
+      }
+      if (event.name === 'new_event') openJoDraft(null);
+      if (event.name === 'review_draft' && cloudDraft) openJoDraft(cloudDraft);
+      if (event.name === 'discard_draft' && cloudDraft) discardCloudDraft();
+      if (event.name === 'save_draft' && reviewingCloudDraft && cloudDraft && typeof event.transcript === 'string' &&
+          /^(?:джованни[, ]+)?(?:нажми(?: кнопку)? +)?(?:да[, ]+)?сохрани(?:ть)? (?:это )?дело[.!?]*$/i.test(event.transcript.replace(/[«»"']/g, '').trim())) {
+        saveJoEvent({ preventDefault: function () {} });
+      }
     }
   }
 
   function startCloudVoice() {
-    if (!voiceSettings || !state || joCloud.disabled) return;
+    if (!voiceSettings || cloudVoice || joCloud.disabled) return;
     setWakeEnabled(false);
     if (recognition) {
       const active = recognition;
@@ -669,15 +779,15 @@
       active.abort();
     }
     try {
-      cloudVoice = window.HoldomVoiceTurn.start(voiceSettings.address, voiceSettings.code, voiceEvent);
-      joCloud.textContent = 'Подключаю микрофон…';
-      joCloud.disabled = true;
-      joCloud.setAttribute('aria-pressed', 'true');
+      cloudVoice = window.HoldomVoiceTurn.start(voiceSettings.address, voiceSettings.code, voiceEvent, chatHistory,
+        cloudDraft ? { draft: true, reviewing: reviewingCloudDraft } : null);
+      joCloud.textContent = 'Остановить';
+      joVoiceAction.textContent = 'Остановить';
       joVoice.disabled = true;
       joWake.disabled = true;
-      joStatus.textContent = 'Подключаю микрофон…';
+      voiceStatus('Подключаю микрофон…');
     } catch (_) {
-      joStatus.textContent = 'Не удалось включить микрофон.';
+      voiceStatus('Не удалось включить микрофон.');
     }
   }
 
@@ -720,7 +830,7 @@
   function setWakeEnabled(enabled, message) {
     wakeEnabled = enabled;
     joWake.setAttribute('aria-pressed', String(enabled));
-    joWake.textContent = enabled ? 'Выключить обращение по имени' : 'Слушать «Джованни»';
+    joWake.textContent = enabled ? 'Выключить обращение по имени' : 'Слушать команды для дел';
     joListening.textContent = message || '';
     if (!enabled) {
       awaitingCommandUntil = 0;
@@ -782,6 +892,7 @@
       return;
     }
     awaitingCommandUntil = 0;
+    if (!/^(?:запиши|добавь|создай|запланируй|напомни)(?=$|[\s,.!?])/i.test(command)) return;
     setJoOpen(true);
     joResult.textContent = '';
     voiceDraft(command);
@@ -898,6 +1009,7 @@
     if (!key || !state || saveRequest) return;
     const what = joTitle.value.trim();
     const date = joDate.value;
+    const reviewedDraft = reviewingCloudDraft ? cloudDraft : null;
     if (!what || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       joStatus.textContent = 'Укажите название и дату.';
       return;
@@ -935,6 +1047,11 @@
       if (showPast) firstMonth = Math.min(firstMonth, targetMonth);
       lastMonth = Math.max(lastMonth, targetMonth + 1);
       resetJo();
+      if (reviewedDraft && cloudDraft === reviewedDraft) {
+        cloudDraft = null;
+        syncCloudVoiceButton();
+        addChatMessage('assistant', 'Дело сохранено: ' + data.entry.what);
+      }
       joResult.textContent = 'Добавлено: ' + data.entry.what;
       if (!event && wakeEnabled) sayWake('Дело добавлено.');
       render(!showPast && date < dayKey(new Date()) ? undefined : targetMonth);
@@ -966,7 +1083,7 @@
       if (request !== xhr) return;
       request = null;
       submit.disabled = false;
-      if (xhr.status === 401 || xhr.status === 403) {
+      if (xhr.status === 401) {
         forgetCalendar();
         showConnection('Ключ не подошёл или доступ закрыт.');
         return;
@@ -987,7 +1104,7 @@
       state = data;
       keyField.value = '';
       try { localStorage.setItem(storageKey, key); } catch (_) {}
-      showConnection('Подключён аккаунт: ' + state.me.name);
+      showConnection('Подключён аккаунт: ' + state.me.name, true);
       render();
       if (!settings.classList.contains('hidden')) {
         if (newConnection) setSettingsOpen(false);
@@ -1231,25 +1348,45 @@
     }
     voiceSettings = candidate;
     voiceReadFailed = false;
+    setWakeEnabled(false);
     showVoiceSettings();
   });
-  joCloud.addEventListener('click', function () {
-    if (recordingCloudVoice) cloudVoice.send();
-    else if (!cloudVoice) startCloudVoice();
+  function toggleCloudVoice() {
+    if (cloudVoice) stopCloudVoice('Запись остановлена.');
+    else startCloudVoice();
+  }
+  joCloud.addEventListener('click', toggleCloudVoice);
+  joVoiceAction.addEventListener('click', toggleCloudVoice);
+  joManual.addEventListener('click', function () { openJoDraft(null); });
+  joNote.addEventListener('click', function () { openNote(''); });
+  $('#note-close').addEventListener('click', function () { noteDialog.classList.add('hidden'); joAdd.focus(); });
+  $('#note-form').addEventListener('submit', function (event) {
+    event.preventDefault();
+    const text = noteText.value.trim();
+    if (!text) return;
+    try {
+      const items = loadNotes();
+      items.unshift(text);
+      localStorage.setItem(notesStorageKey, JSON.stringify(items));
+      renderNotes(items);
+      noteText.value = '';
+      noteStatus.textContent = 'Заметка сохранена на этом планшете.';
+    } catch (_) {
+      noteStatus.textContent = 'Браузер не смог сохранить заметку.';
+    }
   });
+  joReview.addEventListener('click', function () { if (cloudDraft) openJoDraft(cloudDraft); });
+  joDiscard.addEventListener('click', discardCloudDraft);
+  joConnect.addEventListener('click', function () { setSettingsOpen(true); });
   settingsButton.addEventListener('click', function () { setSettingsOpen(true); });
   $('#calendar-settings-close').addEventListener('click', function () { setSettingsOpen(false); });
   joAdd.addEventListener('click', function () {
-    if (!state) {
-      setSettingsOpen(true);
-      return;
-    }
-    const open = joDialog.classList.contains('hidden');
-    setJoOpen(open);
-    if (open) {
-      joResult.textContent = '';
-      if (!joDate.value) joDate.value = dayKey(new Date());
-      joStatus.textContent = SpeechRecognition ? '' : 'Диктовка недоступна в этом браузере. Можно вписать дело.';
+    chatStarted = true;
+    syncCloudVoiceButton();
+    if (voiceSettings && !joCloud.disabled) toggleCloudVoice();
+    else {
+      joChatStatus.textContent = voiceSettings ? 'Этот браузер не поддерживает запись микрофона.'
+        : 'Подключите облачного Джованни, чтобы задавать вопросы голосом.';
     }
   });
   $('#jo-close').addEventListener('click', function () { setJoOpen(false); joAdd.focus(); });
