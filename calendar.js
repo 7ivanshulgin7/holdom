@@ -45,6 +45,7 @@
   const voiceServerCode = $('#voice-server-code');
   const voiceServerStatus = $('#voice-server-status');
   const voiceSettingsKey = 'holdom-voice-function';
+  const defaultVoiceAddress = 'https://functions.yandexcloud.net/d4evm4v4igcuimuril8h';
   const joListening = $('#jo-listening');
   const joTitle = $('#jo-title');
   const joDate = $('#jo-date');
@@ -604,7 +605,7 @@
   function showVoiceSettings() {
     joCloud.classList.toggle('hidden', !voiceSettings);
     joCloud.disabled = !window.HoldomVoiceTurn || !window.HoldomVoiceTurn.supported();
-    voiceServerAddress.value = voiceSettings ? voiceSettings.address : '';
+    voiceServerAddress.value = voiceSettings ? voiceSettings.address : defaultVoiceAddress;
     voiceServerCode.value = '';
     voiceServerCode.placeholder = voiceSettings ? 'Код уже сохранён' : '';
   }
@@ -1191,10 +1192,11 @@
       voiceServerStatus.textContent = 'Облачное подключение удалено.';
       return;
     }
-    const code = enteredCode || (voiceSettings && voiceSettings.address === address ? voiceSettings.code : '');
-    const candidate = readVoiceSettings(address, code);
+    const targetAddress = address || defaultVoiceAddress;
+    const code = enteredCode || (voiceSettings && voiceSettings.address === targetAddress ? voiceSettings.code : '');
+    const candidate = readVoiceSettings(targetAddress, code);
     if (!candidate) {
-      voiceServerStatus.textContent = 'Введите ссылку Cloud Functions и код подключения.';
+      voiceServerStatus.textContent = code ? 'Проверьте адрес функции и код подключения.' : 'Введите код подключения планшета.';
       return;
     }
     voiceSettings = candidate;

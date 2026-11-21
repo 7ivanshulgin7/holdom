@@ -1,6 +1,6 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '18 от 22.11.2026';
+const APP_VER = '19 от 22.11.2026';
 $('#app-version').textContent = 'v' + APP_VER;
 
 const reloadParam = 'holdom-refresh';
