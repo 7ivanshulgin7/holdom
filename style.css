@@ -319,19 +319,19 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
 .calendar-bands .band-first { border-top-left-radius: 6px; border-top-right-radius: 6px; }
 .calendar-bands .band-last { border-bottom-left-radius: 6px; border-bottom-right-radius: 6px; }
 .calendar-bridges {
-  position: absolute; top: 2px; left: calc(100% - 4px);
-  width: 8px; height: calc(100% - 4px); opacity: .885; pointer-events: none;
+  position: absolute; top: 2px; left: calc(100% - 2px);
+  width: 4px; height: calc(100% - 4px); overflow: hidden; pointer-events: none;
 }
-.calendar-bands .pattern-1, .calendar-bridges .pattern-1 {
+.calendar-bands .pattern-1 {
   background-image: repeating-linear-gradient(45deg, transparent 0, transparent 4px, rgba(255,255,255,.32) 4px, rgba(255,255,255,.32) 6px);
 }
-.calendar-bands .pattern-2, .calendar-bridges .pattern-2 {
+.calendar-bands .pattern-2 {
   background-image: repeating-linear-gradient(-45deg, transparent 0, transparent 4px, rgba(255,255,255,.32) 4px, rgba(255,255,255,.32) 6px);
 }
-.calendar-bands .pattern-3, .calendar-bridges .pattern-3 {
+.calendar-bands .pattern-3 {
   background-image: repeating-linear-gradient(0deg, transparent 0, transparent 3px, rgba(255,255,255,.32) 3px, rgba(255,255,255,.32) 5px);
 }
-.calendar-bands .pattern-4, .calendar-bridges .pattern-4 {
+.calendar-bands .pattern-4 {
   background-image: radial-gradient(circle, rgba(255,255,255,.4) 1px, transparent 1.5px);
   background-size: 6px 6px;
 }

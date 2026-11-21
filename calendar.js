@@ -271,9 +271,8 @@
     return bands;
   }
 
-  function createBand(band, patterns, past) {
+  function createBand(band, pattern, past) {
     const element = document.createElement('i');
-    const pattern = patterns[band.person.id];
     if (pattern) element.className = 'pattern-' + pattern;
     const color = parseInt(personColor(band.person).slice(1), 16);
     const mix = function (channel) { return past ? Math.round(channel * .45 + 12) : channel; };
@@ -291,7 +290,7 @@
     layer.setAttribute('aria-hidden', 'true');
     bridges.setAttribute('aria-hidden', 'true');
     current.forEach(function (band) {
-      const color = createBand(band, patterns, past);
+      const color = createBand(band, patterns[band.person.id], past);
       color.style.top = band.top + '%';
       color.style.height = (band.bottom - band.top) + '%';
       if (band.first) color.classList.add('band-first');
@@ -304,9 +303,10 @@
       const top = Math.max(continued.top, band.top);
       const bottom = Math.min(continued.bottom, band.bottom);
       if (bottom - top <= 5) return;
-      const bridge = createBand(band, patterns, past);
-      bridge.style.top = top + '%';
-      bridge.style.height = (bottom - top) + '%';
+      const bridge = createBand(band, 0, past);
+      const height = Math.min(bottom - top, 22);
+      bridge.style.top = ((top + bottom - height) / 2) + '%';
+      bridge.style.height = height + '%';
       bridges.appendChild(bridge);
     });
     if (bridges.firstChild) square.appendChild(bridges);
