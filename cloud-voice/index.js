@@ -28,7 +28,7 @@ exports.handler = async function (event, context) {
     };
   }
 
-  if (event.httpMethod !== 'POST') return reply(405, { error: 'method' });
+  if (event.httpMethod !== 'POST') return reply(405, { error: 'method', revision: 'server-vad' });
   if (suppliedOrigin?.[1] !== origin) return reply(403, { error: 'origin' });
   const code = process.env.HOLDOM_VOICE_CODE;
   const folder = process.env.YANDEX_FOLDER_ID;
@@ -95,6 +95,7 @@ function askGiovanni(audio, folder, token, history, actions) {
   const url = new URL('wss://ai.api.cloud.yandex.net/v1/realtime/openai');
   url.searchParams.set('model', 'gpt://' + folder + '/speech-realtime-deepseek-v4-flash');
   const date = new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeZone: 'Europe/Moscow' }).format(new Date());
+  const silenceDurationMs = 1000;
   const format = { type: 'audio/pcm', rate };
 
   return new Promise((resolve, reject) => {
@@ -160,7 +161,7 @@ function askGiovanni(audio, folder, token, history, actions) {
           output_modalities: ['audio'],
           max_output_tokens: maxResponseTokens,
           audio: {
-            input: { format, turn_detection: null },
+            input: { format, turn_detection: { type: 'server_vad', threshold: 0.4, silence_duration_ms: silenceDurationMs } },
             output: { format, voice: 'anton', role: 'good' },
           },
           tools: [{
@@ -189,7 +190,7 @@ function askGiovanni(audio, folder, token, history, actions) {
         case 'session.updated':
           if (sent) break;
           sent = true;
-          phase = 'audio_buffer';
+          phase = 'speech_start';
           for (const item of history) {
             send({ type: 'conversation.item.create', item: { type: 'message', role: item.role,
               content: [{ type: item.role === 'user' ? 'input_text' : 'output_text', text: item.text.slice(0, 280) }] } });
@@ -199,10 +200,17 @@ function askGiovanni(audio, folder, token, history, actions) {
             send({ type: 'input_audio_buffer.append',
               audio: audio.subarray(offset, offset + chunkBytes).toString('base64') });
           }
-          // Планшет уже закончил запись. Не ждём отдельного события о завершении речи.
-          send({ type: 'input_audio_buffer.commit' });
+          // Give server VAD enough silence to close the recorded turn and start its reply.
+          const silenceChunk = Buffer.alloc(chunkBytes).toString('base64');
+          for (let ms = 0; ms < silenceDurationMs + 200; ms += 100) {
+            send({ type: 'input_audio_buffer.append', audio: silenceChunk });
+          }
+          break;
+        case 'input_audio_buffer.speech_started':
+          phase = 'speech_end';
+          break;
+        case 'input_audio_buffer.speech_stopped':
           phase = 'response_start';
-          send({ type: 'response.create' });
           break;
         case 'response.created':
           phase = 'response';
@@ -241,6 +249,15 @@ function askGiovanni(audio, folder, token, history, actions) {
           const details = response?.status_details;
           const reason = diagnosticCode(details?.reason || details?.error?.code || details?.error?.type, '');
           const stage = 'response_' + status + (reason ? '_' + reason : '');
+          if (status === 'cancelled' && reason === 'turn_detected') {
+            // A newer speech segment interrupted this reply. Wait for its automatic response.
+            chunks.length = 0;
+            bytes = 0;
+            transcript = '';
+            userTranscript = '';
+            phase = stage;
+            break;
+          }
           const partial = status === 'incomplete' && !details?.error &&
             (!details?.reason || details.reason === 'max_output_tokens');
           if (status !== 'completed' && !partial) return finish(stage);
