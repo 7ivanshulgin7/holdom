@@ -7,7 +7,7 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=25">
+  <link rel="stylesheet" href="style.css?v=26">
   <title>holdom — дома</title>
 </head>
 <body>
@@ -45,12 +45,10 @@
     <p id="fullscreen-status" class="screen-status hidden" role="status"></p>
     <div class="board">
       <div class="left-column">
-        <div class="nearest-slot">
-          <section id="calendar-nearest" class="panel nearest-panel hidden" aria-labelledby="nearest-label">
+        <section id="calendar-nearest" class="panel nearest-panel" aria-labelledby="nearest-label">
           <h2 id="nearest-label">Ближайшие дела</h2>
           <ul id="nearest-items" class="nearest-items"></ul>
         </section>
-        </div>
         <section class="hero" aria-label="Часы Джованни">
           <button type="button" id="jo-add" class="clock-face" aria-label="Открыть Джованни"
             aria-controls="jo-chat">
@@ -59,7 +57,6 @@
             </span>
             <span class="jo-smile" aria-hidden="true"></span>
           </button>
-          <div id="date" class="date"></div>
           <p id="jo-listening" class="hint" role="status"></p>
           <p id="jo-result" class="hint" role="status"></p>
         </section>
@@ -175,8 +172,8 @@
     </div>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=25"></script>
-  <script src="voice-turn.js?v=25"></script>
-  <script src="calendar.js?v=25"></script>
+  <script src="app.js?v=26"></script>
+  <script src="voice-turn.js?v=26"></script>
+  <script src="calendar.js?v=26"></script>
 </body>
 </html>

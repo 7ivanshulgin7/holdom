@@ -1,6 +1,6 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '25 от 22.11.2026';
+const APP_VER = '26 от 22.11.2026';
 $('#app-version').textContent = 'v' + APP_VER;
 
 function usePointerFocus() { document.documentElement.classList.add('pointer-focus'); }
@@ -48,20 +48,15 @@ themeSelect.addEventListener('change', function () {
 const clockFace = $('#jo-add');
 const clockHours = $('#clock-hours');
 const clockMinutes = $('#clock-minutes');
-const dateEl = $('#date');
-const weekdays = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 function tick() {
   const now = new Date();
   const hours = ('0' + now.getHours()).slice(-2);
   const minutes = ('0' + now.getMinutes()).slice(-2);
-  const date = weekdays[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()];
   if (clockHours.textContent !== hours || clockMinutes.textContent !== minutes) {
     clockHours.textContent = hours;
     clockMinutes.textContent = minutes;
     clockFace.setAttribute('aria-label', hours + ':' + minutes + '. Открыть Джованни');
   }
-  if (dateEl.textContent !== date) dateEl.textContent = date;
 }
 tick();
 setInterval(tick, 1000);

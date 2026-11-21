@@ -25,7 +25,6 @@
   const agenda = $('#calendar-agenda');
   const events = $('#calendar-events');
   const agendaClose = $('#calendar-day-close');
-  const nearest = $('#calendar-nearest');
   const nearestItems = $('#nearest-items');
   const filterBar = $('#calendar-people-filter');
   const filterChips = $('#filter-chips');
@@ -327,9 +326,13 @@
   }
 
   function renderNearest(people) {
-    nearest.classList.toggle('hidden', !state);
     nearestItems.textContent = '';
-    if (!state) return;
+    if (!state) {
+      const empty = document.createElement('li');
+      empty.textContent = 'Подключите «Кто когда» в настройках.';
+      nearestItems.appendChild(empty);
+      return;
+    }
     const now = new Date();
     const today = dayKey(now);
     const localTime = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);

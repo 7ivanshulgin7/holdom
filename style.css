@@ -210,7 +210,6 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
   letter-spacing: -.065em;
   white-space: nowrap;
 }
-.date { margin-top: 10px; color: var(--ink); font-size: 22px; font-weight: 600; line-height: 1.2; }
 .panel {
   border-radius: 22px;
   background: var(--card);
@@ -376,18 +375,23 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
   .dashboard > .board { display: flex; flex: 1 1 auto; min-height: 0; }
   .left-column { display: flex; flex-direction: column; flex: 0 0 41%; min-width: 0; padding-right: 12px; }
   .right-column { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
-  .left-column > *, .right-column > * { flex-shrink: 0; }
-  .left-column > * { flex: 1 1 0; min-height: 0; margin: 0; box-sizing: border-box; }
-  .left-column > * + * { margin-top: 6px; }
-  .nearest-slot { overflow-y: auto; }
-  .left-column > .hero, .left-column > .jo-chat { display: flex; flex-direction: column; padding: 0 10px; overflow-y: auto; }
-  .left-column > .hero { align-items: center; justify-content: center; text-align: center; }
-  .left-column > .jo-chat { justify-content: center; }  .jo-chat-messages { flex: 1 1 auto; min-height: 0; max-height: none; }
+  .right-column > * { flex-shrink: 0; }
+  .left-column > * {
+    flex: 1 1 0px;
+    min-height: 0;
+    margin: 0;
+    padding: 8px 14px;
+    overflow-y: auto;
+  }
+  .left-column > * + * { margin-top: 8px; }
+  .left-column > .hero, .left-column > .jo-chat { display: flex; flex-direction: column; }
+  .left-column > .hero { justify-content: center; }
+  .jo-chat-messages { flex: 1 1 auto; min-height: 0; max-height: none; }
   .jo-chat-actions, #jo-chat-status { flex-shrink: 0; }
-  .hero { padding: 9px 14px; margin-bottom: 6px; }
   .clock { font-size: 8vw; }
-  .date { font-size: 25px; }
-  .nearest-slot .nearest-panel { margin-bottom: 0; }
+  .nearest-panel h2 { font-size: 18px; }
+  .nearest-panel strong { font-size: 28px; line-height: 1.12; }
+  .nearest-panel small { font-size: 18px; line-height: 1.2; }
   .right-column .panel { padding: 7px 11px; margin-bottom: 7px; }
   .right-column > .calendar-panel {
     display: flex;
@@ -418,10 +422,7 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
   .clock { font-size: 102px; }
 }
 @media (min-width: 700px) and (max-height: 520px) and (orientation: landscape) {
-  .hero { padding: 10px 14px; margin-bottom: 7px; }
   .clock { font-size: 64px; }
-  .date { font-size: 20px; margin-top: 7px; }
-  .nearest-panel { padding: 8px 12px; margin-bottom: 5px; }
   .nearest-items li { padding: 3px 0; }
   .jo-smile { height: 7px; margin-top: 4px; }
 }

@@ -189,14 +189,19 @@ function askGiovanni(audio, folder, token, history, actions) {
         case 'session.updated':
           if (sent) break;
           sent = true;
-          phase = 'audio_item';
+          phase = 'audio_buffer';
           for (const item of history) {
             send({ type: 'conversation.item.create', item: { type: 'message', role: item.role,
               content: [{ type: item.role === 'user' ? 'input_text' : 'output_text', text: item.text.slice(0, 280) }] } });
           }
-          send({ type: 'conversation.item.create', item: { type: 'message', role: 'user',
-            content: [{ type: 'input_audio', audio: audio.toString('base64') }] } });
-          // Планшет уже закончил запись. Запускаем ответ сразу после добавления реплики.
+          const chunkBytes = rate * 2 / 10;
+          for (let offset = 0; offset < audio.length; offset += chunkBytes) {
+            send({ type: 'input_audio_buffer.append',
+              audio: audio.subarray(offset, offset + chunkBytes).toString('base64') });
+          }
+          // Планшет уже закончил запись. Не ждём отдельного события о завершении речи.
+          send({ type: 'input_audio_buffer.commit' });
+          phase = 'response_start';
           send({ type: 'response.create' });
           break;
         case 'response.created':
