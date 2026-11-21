@@ -1,4 +1,7 @@
 const $ = s => document.querySelector(s);
+// При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
+const APP_VER = '5 от 21.11.2026';
+$('#app-version').textContent = 'holdom · бета · v' + APP_VER;
 const clock = $('#clock'), dateEl = $('#date');
 function tick(){const d=new Date();clock.textContent=new Intl.DateTimeFormat('ru-RU',{hour:'2-digit',minute:'2-digit'}).format(d);dateEl.textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long'}).format(d).toLocaleUpperCase('ru-RU')}
 tick();setInterval(tick,1000);

@@ -7,7 +7,7 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=5">
   <title>holdom — дома</title>
 </head>
 <body>
@@ -33,9 +33,12 @@
     </section>
     <section id="shopping" class="content hidden"><div class="section-head"><div><p class="eyebrow">СПИСОК СЕМЬИ</p><h1>Купить</h1></div><button class="quiet-button" id="clear-done">Убрать купленное</button></div><form id="shopping-form" class="add-form"><input id="shopping-input" autocomplete="off" placeholder="Что добавить? Например, молоко"><button type="submit">＋</button></form><ul id="shopping-list" class="shopping-list"></ul><p class="hint">Список сохраняется на этом планшете. Скоро Джо сможет добавлять покупки голосом.</p></section>
     <section id="home" class="content hidden"><div class="section-head"><div><p class="eyebrow">НАША СЕМЬЯ</p><h1>Дома</h1></div></div><div class="home-card"><div class="jo large">J</div><div><strong>Джо</strong><p>Домашний помощник</p><small>Пока учится вести семейный список</small></div><span class="status">● онлайн</span></div><div class="home-card muted-card"><div class="calendar-icon">▦</div><div><strong>Кто когда</strong><p>Семейный календарь</p><small>Подключим отдельного пользователя «Дом»</small></div><span class="connect">скоро</span></div></section>
-    <footer><span>семейное табло</span><span class="sync"><i></i> локальный прототип</span></footer>
+    <footer class="app-signature">
+      <img src="itivan-sign.svg" alt="itivan">
+      <span id="app-version"></span>
+    </footer>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
