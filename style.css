@@ -1,4 +1,4 @@
-:root { color-scheme: dark; }
+:root { color-scheme: dark; background: #111611; }
 * { box-sizing: border-box; }
 body {
   margin: 0;
@@ -13,6 +13,14 @@ button:focus, input:focus { outline: 2px solid #d1f17b; outline-offset: 2px; }
 
 .dashboard { width: 100%; max-width: 1320px; margin: 0 auto; padding: 14px 18px 18px; }
 .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.brand-group { display: flex; flex-wrap: wrap; align-items: baseline; margin-right: 10px; }
+.app-version { margin-left: 10px; color: #bac0b3; font-size: 12px; white-space: nowrap; }
+.screen-actions { display: flex; align-items: center; }
+.screen-actions button + button { margin-left: 8px; }
+@media (max-width: 480px) {
+  .topbar { flex-wrap: wrap; }
+  .screen-actions { width: 100%; justify-content: flex-end; margin-top: 8px; }
+}
 .brand { display: flex; align-items: center; font-size: 23px; font-weight: 700; letter-spacing: -.7px; }
 .brand-mark, .jo {
   display: inline-block;
@@ -102,8 +110,6 @@ button:focus, input:focus { outline: 2px solid #d1f17b; outline-offset: 2px; }
 .event-time { flex-basis: 100px; font-size: 15px; }
 .event-info { border-left-color: #8bac7b; }
 .screen-status { color: #b7c2b1; font-size: 14px; margin: 0 0 12px; }
-.app-signature { margin: 0 6px; text-align: center; font-size: 12px; color: #bac0b3; }
-.app-signature img { display: block; width: auto; height: 28px; margin: 0 auto 2px; }
 
 @media (min-width: 700px) and (orientation: landscape) {
   .dashboard { padding: 16px 26px 18px; }

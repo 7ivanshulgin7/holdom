@@ -1,7 +1,7 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '8 от 21.11.2026';
-$('#app-version').textContent = 'holdom · бета · v' + APP_VER;
+const APP_VER = '9 от 21.11.2026';
+$('#app-version').textContent = 'v' + APP_VER;
 const clock = $('#clock');
 const dateEl = $('#date');
 const weekdays = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
@@ -15,6 +15,55 @@ function tick() {
 }
 tick();
 setInterval(tick, 1000);
+
+const fullscreenButton = $('#fullscreen-button');
+const fullscreenStatus = $('#fullscreen-status');
+const fullscreenRoot = document.documentElement;
+const enterFullscreen = fullscreenRoot.requestFullscreen
+  || fullscreenRoot.webkitRequestFullscreen || fullscreenRoot.webkitRequestFullScreen;
+const exitFullscreen = document.exitFullscreen
+  || document.webkitExitFullscreen || document.webkitCancelFullScreen;
+
+function fullscreenActive() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement
+    || document.webkitCurrentFullScreenElement || document.webkitIsFullScreen);
+}
+
+function fullscreenMessage(message) {
+  fullscreenStatus.textContent = message;
+  fullscreenStatus.classList.toggle('hidden', !message);
+}
+
+function syncFullscreenButton() {
+  const active = fullscreenActive();
+  fullscreenButton.textContent = active ? 'Выйти из полного экрана' : 'На весь экран';
+  fullscreenButton.setAttribute('aria-pressed', String(active));
+  fullscreenMessage('');
+}
+
+function fullscreenFailed() {
+  fullscreenMessage('Браузер не разрешил переключить полноэкранный режим.');
+}
+
+fullscreenButton.addEventListener('click', function () {
+  const active = fullscreenActive();
+  const action = active ? exitFullscreen : enterFullscreen;
+  if (!action) {
+    fullscreenMessage('Этот браузер не поддерживает полноэкранный режим страницы.');
+    return;
+  }
+  try {
+    const result = action.call(active ? document : fullscreenRoot);
+    if (result && typeof result.catch === 'function') result.catch(fullscreenFailed);
+  } catch (_) {
+    fullscreenFailed();
+  }
+});
+document.addEventListener('fullscreenchange', syncFullscreenButton);
+document.addEventListener('webkitfullscreenchange', syncFullscreenButton);
+document.addEventListener('fullscreenerror', fullscreenFailed);
+document.addEventListener('webkitfullscreenerror', fullscreenFailed);
+syncFullscreenButton();
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 const screenPreference = 'holdom-keep-screen-on';
 const keepScreenOn = $('#keep-screen-on');

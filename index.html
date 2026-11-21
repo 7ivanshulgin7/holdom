@@ -7,20 +7,23 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=8">
+  <link rel="stylesheet" href="style.css?v=9">
   <title>holdom — дома</title>
 </head>
 <body>
   <main class="dashboard">
     <header class="topbar">
-      <div class="brand"><span class="brand-mark" aria-hidden="true">h</span>holdom</div>
-      <div class="app-signature">
-        <img src="itivan-sign.svg" alt="itivan">
-        <span id="app-version"></span>
+      <div class="brand-group">
+        <div class="brand"><span class="brand-mark" aria-hidden="true">h</span>holdom</div>
+        <span id="app-version" class="app-version"></span>
       </div>
-      <button type="button" id="keep-screen-on" class="quiet-button screen-button" aria-pressed="false">Не гасить экран</button>
+      <div class="screen-actions">
+        <button type="button" id="keep-screen-on" class="quiet-button screen-button" aria-pressed="false">Не гасить экран</button>
+        <button type="button" id="fullscreen-button" class="quiet-button screen-button" aria-pressed="false">На весь экран</button>
+      </div>
     </header>
     <p id="screen-status" class="screen-status hidden" role="status"></p>
+    <p id="fullscreen-status" class="screen-status hidden" role="status"></p>
     <div class="board">
       <div class="left-column">
         <section class="hero" aria-label="Часы">
@@ -71,7 +74,7 @@
     </div>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=8"></script>
-  <script src="calendar.js?v=8"></script>
+  <script src="app.js?v=9"></script>
+  <script src="calendar.js?v=9"></script>
 </body>
 </html>
