@@ -1,8 +1,21 @@
-const CACHE = 'holdom-shell-v6';
+const CACHE = 'holdom-shell-v7';
 const FILES = [
-  './', './index.html', './style.css?v=6', './app.js?v=6',
+  './', './index.html', './style.css?v=7', './app.js?v=7', './calendar.js?v=7',
   './manifest.webmanifest', './icon-192.png', './icon-512.png', './itivan-sign.svg'
 ];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.indexOf('holdom-shell-')===0&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',e=>{if(e.request.method!=='GET'||e.request.headers.has('range')||e.request.destination==='video')return;e.respondWith(caches.match(e.request).then(hit=>hit||fetch(e.request).then(r=>{if(r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy))}return r}).catch(()=>caches.match('./index.html'))))});
+self.addEventListener('fetch', function (event) {
+  const request = event.request;
+  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin ||
+      request.headers.has('range') || request.destination === 'video') return;
+  event.respondWith(caches.open(CACHE).then(function (cache) {
+    return cache.match(request).then(function (cached) {
+      if (cached) return cached;
+      return fetch(request).catch(function (error) {
+        if (request.mode === 'navigate') return cache.match('./index.html');
+        throw error;
+      });
+    });
+  }));
+});

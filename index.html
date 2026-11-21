@@ -7,19 +7,20 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=6">
+  <link rel="stylesheet" href="style.css?v=7">
   <title>holdom — дома</title>
 </head>
 <body>
   <main class="dashboard">
     <header class="topbar">
       <div class="brand"><span class="brand-mark" aria-hidden="true">h</span>holdom</div>
-      <button type="button" id="settings-button" class="avatar" aria-label="Настройки" aria-expanded="false" aria-controls="settings">⚙</button>
+      <div class="app-signature">
+        <img src="itivan-sign.svg" alt="itivan">
+        <span id="app-version"></span>
+      </div>
+      <button type="button" id="keep-screen-on" class="quiet-button screen-button" aria-pressed="false">Не гасить экран</button>
     </header>
-    <section id="settings" class="screen-settings hidden" aria-label="Настройки">
-      <label for="keep-screen-on"><input type="checkbox" id="keep-screen-on"> Не гасить экран</label>
-      <p id="screen-status" role="status"></p>
-    </section>
+    <p id="screen-status" class="screen-status hidden" role="status"></p>
     <div class="board">
       <div class="left-column">
         <section class="hero" aria-label="Часы">
@@ -36,34 +37,36 @@
         </div>
       </div>
       <div class="right-column">
-        <section class="panel" aria-labelledby="today-title">
-          <div class="section-head"><h2 id="today-title">Планы на сегодня</h2><span class="demo">Примеры</span></div>
-          <div class="event-list">
-            <article class="event"><div class="event-time">09:30</div><div class="event-info pink"><strong>Забрать посылку</strong><span>Иван · пункт выдачи</span></div></article>
-            <article class="event"><div class="event-time">16:00</div><div class="event-info blue"><strong>Музыкалка</strong><span>Лера · взять ноты</span></div></article>
-            <article class="event"><div class="event-time">19:00</div><div class="event-info green"><strong>Ужин у родителей</strong><span>Все вместе</span></div></article>
-          </div>
-        </section>
-        <section class="panel" aria-labelledby="shopping-title">
+        <section class="panel calendar-panel" aria-labelledby="calendar-title">
           <div class="section-head">
-            <h2 id="shopping-title">Покупки <span id="shopping-count" class="shopping-count">0</span></h2>
-            <button type="button" class="quiet-button" id="clear-done">Убрать купленное</button>
+            <h2 id="calendar-title">Кто когда</h2>
+            <button type="button" class="quiet-button hidden" id="calendar-disconnect">Отключить</button>
           </div>
-          <form id="shopping-form" class="add-form">
-            <input id="shopping-input" autocomplete="off" aria-label="Новая покупка" placeholder="Что купить?">
-            <button type="submit" aria-label="Добавить покупку">+</button>
+          <form id="calendar-connect" class="calendar-connect">
+            <label for="calendar-key">Ключ входа аккаунта планшета</label>
+            <div class="connect-row">
+              <input id="calendar-key" type="password" autocomplete="off" required>
+              <button type="submit" class="quiet-button">Подключить</button>
+            </div>
           </form>
-          <ul id="shopping-list" class="shopping-list"></ul>
-          <p id="shopping-empty" class="hint">Список пока пуст.</p>
+          <p id="calendar-status" class="hint" role="status"></p>
+          <div class="calendar-nav">
+            <button type="button" class="quiet-button" id="previous-month" aria-label="Предыдущий месяц">‹</button>
+            <h3 id="calendar-month"></h3>
+            <button type="button" class="quiet-button" id="next-month" aria-label="Следующий месяц">›</button>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+          <div id="calendar-days" class="calendar-days"></div>
+          <div id="calendar-agenda" class="hidden">
+            <h3 id="calendar-day-title"></h3>
+            <div id="calendar-events" class="event-list"></div>
+          </div>
         </section>
       </div>
     </div>
-    <footer class="app-signature">
-      <img src="itivan-sign.svg" alt="itivan">
-      <span id="app-version"></span>
-    </footer>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
+  <script src="calendar.js?v=7"></script>
 </body>
 </html>

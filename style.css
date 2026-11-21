@@ -34,10 +34,6 @@ button:focus, input:focus { outline: 2px solid #d1f17b; outline-offset: 2px; }
 .avatar { width: 44px; font-size: 20px; }
 .quiet-button { padding: 5px 10px; font-size: 13px; }
 
-.screen-settings { padding: 10px 14px; margin-bottom: 14px; border: 1px solid #444e3e; border-radius: 12px; }
-.screen-settings label { display: flex; align-items: center; min-height: 44px; font-size: 16px; cursor: pointer; }
-.screen-settings input { width: 22px; height: 22px; margin: 0 12px 0 0; accent-color: #d1f17b; }
-.screen-settings p { margin: 0; font-size: 14px; color: #b7c2b1; }
 .screen-video { position: fixed; bottom: 8px; right: 8px; width: 48px; height: 32px; pointer-events: none; }
 
 .hero {
@@ -78,49 +74,30 @@ button:focus, input:focus { outline: 2px solid #d1f17b; outline-offset: 2px; }
 .event-info { min-width: 0; padding-left: 11px; border-left: 3px solid; }
 .event-info strong { display: block; font-size: 17px; overflow-wrap: break-word; }
 .event-info span { display: block; margin-top: 2px; color: #b7c2b1; font-size: 13px; }
-.pink { border-color: #fa83b8; }
-.blue { border-color: #82b8ff; }
-.green { border-color: #91d6a0; }
 
-.shopping-count { margin-left: 5px; color: #c2db98; font-size: 14px; font-weight: 400; }
-.add-form { display: flex; margin: 8px 0; }
-.add-form input {
-  flex: 1;
-  min-width: 0;
-  min-height: 44px;
-  padding: 8px 12px;
-  border: 1px solid #495744;
-  border-radius: 9px;
-  background: #131b14;
-  color: #f6f4e9;
-  font-size: 16px;
-}
-.add-form button {
-  flex: 0 0 46px;
-  margin-left: 8px;
-  border: 0;
-  border-radius: 9px;
-  background: #d1f17b;
-  color: #192014;
-  font-size: 25px;
-}
-.shopping-list { margin: 0; padding: 0; list-style: none; }
-.shopping-list li { display: flex; align-items: center; min-height: 44px; border-bottom: 1px solid #333e32; }
-.shopping-list li:last-child { border-bottom: 0; }
-.item-name { flex: 1; min-width: 0; padding: 0 8px; overflow-wrap: break-word; }
-.shopping-list .done .item-name { text-decoration: line-through; color: #a0ae9a; }
-.item-toggle, .item-delete {
-  flex: 0 0 44px;
-  min-height: 44px;
-  border: 0;
-  background: transparent;
-  color: #d1f17b;
-  font-size: 18px;
-}
-.item-delete { color: #b7c2b1; }
-.hint { margin: 8px 0 2px; font-size: 14px; color: #b7c2b1; }
-
-.app-signature { padding-top: 3px; text-align: center; font-size: 12px; color: #bac0b3; }
+.calendar-connect { margin: 12px 0; }
+.calendar-connect label { display: block; font-size: 14px; margin-bottom: 6px; }
+.connect-row { display: flex; }
+.connect-row input { flex: 1; min-width: 0; margin-right: 8px; min-height: 44px; padding: 8px; color: #f6f4e9; background: #131b14; border: 1px solid #495744; border-radius: 9px; }
+.hint { margin: 8px 0; color: #b7c2b1; font-size: 14px; }
+.hint:empty { display: none; }
+.calendar-nav { display: flex; align-items: center; justify-content: space-between; margin: 8px 0; }
+.calendar-nav button { min-width: 44px; font-size: 24px; }
+.calendar-panel h3 { margin: 8px 0; font-size: 17px; }
+.calendar-weekdays, .calendar-days { display: flex; flex-wrap: wrap; }
+.calendar-weekdays span, .calendar-days > * { flex: 0 0 14.2857%; text-align: center; }
+.calendar-weekdays span { padding: 5px 0; color: #b7c2b1; font-size: 13px; }
+.calendar-day { position: relative; min-width: 0; min-height: 37px; border: 1px solid #1a221b; border-radius: 8px; color: #f6f4e9; background: #242d22; }
+.calendar-busy:after { content: ''; position: absolute; width: 4px; height: 4px; border-radius: 50%; bottom: 4px; left: 50%; margin-left: -2px; background: #d1f17b; }
+.calendar-today { border-color: #d1f17b; }
+.calendar-day[aria-pressed="true"], .screen-button[aria-pressed="true"] { background: #d1f17b; color: #192014; }
+.calendar-day[aria-pressed="true"]:after { background: #192014; }
+#calendar-agenda { border-top: 1px solid #333e32; margin-top: 12px; padding-top: 3px; }
+#calendar-events { font-size: 14px; color: #c2cdb9; }
+.event-time { flex-basis: 76px; font-size: 15px; }
+.event-info { border-left-color: #8bac7b; }
+.screen-status { color: #b7c2b1; font-size: 14px; margin: 0 0 12px; }
+.app-signature { margin: 0 6px; text-align: center; font-size: 12px; color: #bac0b3; }
 .app-signature img { display: block; width: auto; height: 28px; margin: 0 auto 2px; }
 
 @media (min-width: 700px) and (orientation: landscape) {
@@ -131,7 +108,6 @@ button:focus, input:focus { outline: 2px solid #d1f17b; outline-offset: 2px; }
   .hero { padding: 34px 18px; }
   .clock { font-size: 11vw; }
   .date { font-size: 19px; }
-  .shopping-list { max-height: 28vh; overflow-y: auto; }
 }
 @media (min-width: 1250px) and (orientation: landscape) {
   .clock { font-size: 132px; }
