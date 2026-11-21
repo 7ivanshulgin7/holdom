@@ -1,6 +1,6 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '22 от 22.11.2026';
+const APP_VER = '23 от 22.11.2026';
 $('#app-version').textContent = 'v' + APP_VER;
 
 function usePointerFocus() { document.documentElement.classList.add('pointer-focus'); }
@@ -120,9 +120,11 @@ const keepScreenOn = $('#keep-screen-on');
 const screenStatus = $('#screen-status');
 const wakeLockSupported = !!(navigator.wakeLock && navigator.wakeLock.request);
 const screenVideo = $('#screen-video');
-const videoSupported = !!screenVideo.canPlayType('video/mp4; codecs="avc1.42E01E"');
+const videoSupported = !!screenVideo.canPlayType('video/mp4');
 let screenLock = null;
 let screenRequestPending = false;
+let videoRequest = null;
+let videoNeedsTap = false;
 
 let screenEnabled = false;
 
@@ -138,34 +140,60 @@ function updateVideoLock() {
     return;
   }
   if (!screenEnabled || document.hidden) {
+    videoRequest = null;
     screenVideo.pause();
     screenVideo.classList.add('hidden');
+    keepScreenOn.setAttribute('aria-pressed', 'false');
     setScreenStatus(screenEnabled
       ? 'Режим приостановлен, пока holdom не на экране.'
       : '');
     return;
   }
+  if (videoNeedsTap || videoRequest || !screenVideo.paused) return;
   screenVideo.classList.remove('hidden');
   screenVideo.muted = true;
   if (!screenVideo.getAttribute('src')) screenVideo.src = './keep-awake.mp4';
   setScreenStatus('Запускаем видео для удержания экрана…');
-  const playback = screenVideo.play();
-  if (playback) playback.catch(videoLockFailed);
+  const attempt = {};
+  videoRequest = attempt;
+  try {
+    const playback = screenVideo.play();
+    if (playback) playback.catch(function (error) {
+      if (videoRequest === attempt) videoLockFailed(error);
+    });
+  } catch (error) {
+    videoLockFailed(error);
+  }
 }
 
-function videoLockFailed() {
+function videoLockFailed(error) {
+  videoRequest = null;
   if (!screenEnabled || document.hidden) return;
-  setScreenEnabled(false);
+  videoNeedsTap = true;
   screenVideo.pause();
   screenVideo.classList.add('hidden');
-  setScreenStatus('Видео не запустилось. Проверьте интернет и включите настройку ещё раз.');
+  keepScreenOn.setAttribute('aria-pressed', 'false');
+  if (error && error.name === 'NotAllowedError') {
+    setScreenStatus('Нажмите «Не гасить экран», чтобы запустить удержание.');
+  } else {
+    screenVideo.removeAttribute('src');
+    setScreenStatus('Видео не запустилось. Нажмите «Не гасить экран», чтобы повторить.');
+  }
 }
 
 screenVideo.addEventListener('error', videoLockFailed);
 screenVideo.addEventListener('playing', function () {
-  if (screenEnabled) {
+  videoRequest = null;
+  if (screenEnabled && !document.hidden) {
+    keepScreenOn.setAttribute('aria-pressed', 'true');
     setScreenStatus('');
   }
+});
+screenVideo.addEventListener('pause', function () {
+  if (!screenEnabled || document.hidden || videoNeedsTap) return;
+  videoRequest = null;
+  keepScreenOn.setAttribute('aria-pressed', 'false');
+  updateVideoLock();
 });
 
 function updateScreenLock() {
@@ -210,19 +238,22 @@ function updateScreenLock() {
 
 function setScreenEnabled(enabled) {
   screenEnabled = enabled;
-  keepScreenOn.setAttribute('aria-pressed', String(enabled));
+  if (wakeLockSupported || !enabled) keepScreenOn.setAttribute('aria-pressed', String(enabled));
 }
 
 try {
-  setScreenEnabled(wakeLockSupported && localStorage.getItem(screenPreference) === '1');
+  setScreenEnabled((wakeLockSupported || videoSupported) && localStorage.getItem(screenPreference) === '1');
 } catch (_) {}
 keepScreenOn.disabled = !wakeLockSupported && !videoSupported;
 keepScreenOn.addEventListener('click', function () {
-  setScreenEnabled(!screenEnabled);
+  setScreenEnabled(videoNeedsTap || !screenEnabled);
+  videoNeedsTap = false;
   try {
-    if (wakeLockSupported) localStorage.setItem(screenPreference, screenEnabled ? '1' : '0');
+    localStorage.setItem(screenPreference, screenEnabled ? '1' : '0');
   } catch (_) {}
   updateScreenLock();
 });
 document.addEventListener('visibilitychange', updateScreenLock);
+document.addEventListener('webkitfullscreenchange', updateScreenLock);
+document.addEventListener('fullscreenchange', updateScreenLock);
 updateScreenLock();

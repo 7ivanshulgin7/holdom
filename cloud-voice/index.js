@@ -26,7 +26,8 @@ exports.handler = async function (event, context) {
   if (suppliedOrigin?.[1] !== origin) return reply(403, { error: 'origin' });
   const code = process.env.HOLDOM_VOICE_CODE;
   const folder = process.env.YANDEX_FOLDER_ID;
-  if (!code || !/^[a-f0-9]{64}$/.test(code) || !folder || !context?.token) {
+  const accessToken = context?.token?.access_token;
+  if (!code || !/^[a-f0-9]{64}$/.test(code) || !folder || typeof accessToken !== 'string' || !accessToken) {
     return reply(503, { error: 'configuration' });
   }
   if (typeof event.body !== 'string' || event.body.length > 1_300_000) return reply(413, { error: 'size' });
@@ -51,7 +52,7 @@ exports.handler = async function (event, context) {
     ? { reviewing: request.actions.reviewing === true } : null;
 
   try {
-    return reply(200, await askGiovanni(audio, folder, context.token, history, actions));
+    return reply(200, await askGiovanni(audio, folder, accessToken, history, actions));
   } catch (error) {
     const stage = error.stage || 'internal_error';
     console.warn('Giovanni:', stage);
