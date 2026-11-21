@@ -10,6 +10,7 @@
   const days = $('#calendar-days');
   const agenda = $('#calendar-agenda');
   const events = $('#calendar-events');
+  const nearest = $('#calendar-nearest');
   let selected = new Date();
   let month = new Date(selected.getFullYear(), selected.getMonth(), 1);
   let lastToday = dayKey(selected);
@@ -31,6 +32,46 @@
     });
   }
 
+  function entryPeople(entry, day, people) {
+    const ids = Array.isArray(entry.who) && entry.who.length ? entry.who : [entry.by];
+    return ids.filter(function (id) {
+      const personalDays = entry.days && entry.days[id];
+      return people[id] && (!Array.isArray(personalDays) || personalDays.indexOf(day) !== -1);
+    }).map(function (id) { return people[id]; });
+  }
+
+  function personColor(person) {
+    return person && /^#[a-f0-9]{6}$/i.test(person.color) ? person.color : '#8bac7b';
+  }
+
+  function renderNearest(people) {
+    nearest.classList.toggle('hidden', !state);
+    if (!state) return;
+    const now = new Date();
+    const today = dayKey(now);
+    const time = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+    let next = null;
+    state.entries.forEach(function (entry) {
+      const end = entry.to || entry.from;
+      if (!entry.from || end < today) return;
+      const day = entry.from < today ? today : entry.from;
+      if (end === today && entry.tf && (entry.tt || entry.tf) < time) return;
+      const order = day + 'T' + (entry.tf || '24:00');
+      if (!next || order < next.order) next = { entry: entry, day: day, order: order };
+    });
+    const title = $('#nearest-title');
+    const meta = $('#nearest-details');
+    title.textContent = next ? next.entry.what : 'Предстоящих дел нет';
+    meta.textContent = '';
+    if (!next) return;
+    const date = next.day.split('-');
+    const peopleLabel = entryPeople(next.entry, next.day, people).map(function (person) { return person.name; });
+    const details = [next.day === today ? 'Сегодня' : (+date[2] + ' ' + months[+date[1] - 1])];
+    if (next.entry.tf) details.push(next.entry.tf + (next.entry.tt ? '–' + next.entry.tt : ''));
+    if (peopleLabel.length) details.push(peopleLabel.join(', '));
+    meta.textContent = details.join(' · ');
+  }
+
   function render() {
     const year = month.getFullYear();
     const index = month.getMonth();
@@ -38,6 +79,9 @@
     const length = new Date(year, index + 1, 0).getDate();
     const activeDay = dayKey(selected);
     const today = dayKey(new Date());
+    const people = Object.create(null);
+    if (state) state.people.forEach(function (person) { people[person.id] = person; });
+    renderNearest(people);
     $('#calendar-month').textContent = monthNames[index] + ' ' + year;
     days.textContent = '';
 
@@ -49,15 +93,32 @@
       }
       const date = new Date(year, index, day);
       const iso = dayKey(date);
-      const count = entriesFor(iso).length;
+      const dayEntries = entriesFor(iso);
+      const count = dayEntries.length;
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'calendar-day';
       if (iso === today) button.classList.add('calendar-today');
-      if (count) button.classList.add('calendar-busy');
       button.setAttribute('aria-label', iso + (count ? ', событий: ' + count : ''));
       button.setAttribute('aria-pressed', String(iso === activeDay));
       button.textContent = day;
+      if (count) {
+        const bands = document.createElement('span');
+        bands.className = 'calendar-bands';
+        bands.setAttribute('aria-hidden', 'true');
+        const marked = Object.create(null);
+        dayEntries.forEach(function (entry) {
+          entryPeople(entry, iso, people).forEach(function (person) {
+            if (marked[person.id]) return;
+            marked[person.id] = true;
+            const band = document.createElement('i');
+            band.style.backgroundColor = personColor(person);
+            bands.appendChild(band);
+          });
+        });
+        if (!bands.firstChild) bands.appendChild(document.createElement('i'));
+        button.appendChild(bands);
+      }
       button.onclick = function () {
         selected = date;
         render();
@@ -76,24 +137,25 @@
       events.textContent = 'На этот день дел нет.';
       return;
     }
-    const people = Object.create(null);
-    state.people.forEach(function (person) { people[person.id] = person; });
     items.forEach(function (entry) {
       const owner = people[entry.by];
+      const participants = entryPeople(entry, activeDay, people);
       const row = document.createElement('article');
       row.className = 'event';
       const time = document.createElement('div');
       time.className = 'event-time';
-      time.textContent = entry.tf || 'Весь день';
+      time.textContent = entry.tf ? entry.tf + (entry.tt ? '–' + entry.tt : '') : 'Весь день';
       const info = document.createElement('div');
       info.className = 'event-info';
-      if (owner && /^#[a-f0-9]{6}$/i.test(owner.color)) info.style.borderColor = owner.color;
+      info.style.borderColor = personColor(participants[0] || owner);
       const title = document.createElement('strong');
       title.textContent = entry.what;
       info.appendChild(title);
-      if (owner) {
+      if (participants.length || owner) {
         const name = document.createElement('span');
-        name.textContent = owner.name;
+        name.textContent = participants.length
+          ? participants.map(function (person) { return person.name; }).join(', ')
+          : owner.name;
         info.appendChild(name);
       }
       row.appendChild(time);
