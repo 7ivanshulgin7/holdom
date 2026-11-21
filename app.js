@@ -1,26 +1,51 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '5 от 21.11.2026';
+const APP_VER = '6 от 21.11.2026';
 $('#app-version').textContent = 'holdom · бета · v' + APP_VER;
-const clock = $('#clock'), dateEl = $('#date');
-function tick(){const d=new Date();clock.textContent=new Intl.DateTimeFormat('ru-RU',{hour:'2-digit',minute:'2-digit'}).format(d);dateEl.textContent=new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long'}).format(d).toLocaleUpperCase('ru-RU')}
-tick();setInterval(tick,1000);
-const tabs = document.querySelectorAll('.tab');
-const sections = document.querySelectorAll('.content');
-Array.prototype.forEach.call(tabs, function (tab) {
-  tab.addEventListener('click', function () {
-    Array.prototype.forEach.call(tabs, function (button) {
-      button.classList.toggle('active', button === tab);
-    });
-    Array.prototype.forEach.call(sections, function (section) {
-      const selected = section.id === tab.dataset.tab;
-      section.classList.toggle('active', selected);
-      section.classList.toggle('hidden', !selected);
-    });
-  });
-});
+const clock = $('#clock');
+const dateEl = $('#date');
+const weekdays = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+function tick() {
+  const now = new Date();
+  const time = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+  const date = weekdays[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()];
+  if (clock.textContent !== time) clock.textContent = time;
+  if (dateEl.textContent !== date) dateEl.textContent = date;
+}
+tick();
+setInterval(tick, 1000);
 const STORE='holdom-shopping-v1';let items=JSON.parse(localStorage.getItem(STORE)||'[]');
-function render(){const list=$('#shopping-list');list.textContent='';items.forEach((item,i)=>{const li=document.createElement('li');li.className=item.done?'done':'';const toggle=document.createElement('button');toggle.className='item-toggle';toggle.textContent=item.done?'✓':'';toggle.onclick=()=>{items[i].done=!items[i].done;save()};const name=document.createElement('span');name.className='item-name';name.textContent=item.name;const del=document.createElement('button');del.className='item-delete';del.textContent='×';del.setAttribute('aria-label','Удалить');del.onclick=()=>{items.splice(i,1);save()};li.appendChild(toggle);li.appendChild(name);li.appendChild(del);list.appendChild(li)});$('#shopping-count').textContent=items.filter(x=>!x.done).length;localStorage.setItem(STORE,JSON.stringify(items))}
+function render() {
+  const list = $('#shopping-list');
+  list.textContent = '';
+  items.forEach(function (item, index) {
+    const row = document.createElement('li');
+    row.className = item.done ? 'done' : '';
+    const toggle = document.createElement('button');
+    toggle.className = 'item-toggle';
+    toggle.textContent = item.done ? '✓' : '○';
+    toggle.setAttribute('aria-label', 'Куплено: ' + item.name);
+    toggle.setAttribute('aria-pressed', String(item.done));
+    toggle.onclick = function () { item.done = !item.done; save(); };
+    const name = document.createElement('span');
+    name.className = 'item-name';
+    name.textContent = item.name;
+    const remove = document.createElement('button');
+    remove.className = 'item-delete';
+    remove.textContent = '×';
+    remove.setAttribute('aria-label', 'Удалить: ' + item.name);
+    remove.onclick = function () { items.splice(index, 1); save(); };
+    row.appendChild(toggle);
+    row.appendChild(name);
+    row.appendChild(remove);
+    list.appendChild(row);
+  });
+  $('#shopping-empty').hidden = items.length > 0;
+  $('#shopping-count').textContent = items.filter(function (item) { return !item.done; }).length;
+  $('#clear-done').disabled = !items.some(function (item) { return item.done; });
+  localStorage.setItem(STORE, JSON.stringify(items));
+}
 function save(){render()}
 $('#shopping-form').addEventListener('submit',e=>{e.preventDefault();const input=$('#shopping-input');const name=input.value.trim();if(!name)return;items.push({name,done:false});input.value='';save()});
 $('#clear-done').onclick=()=>{items=items.filter(x=>!x.done);save()};

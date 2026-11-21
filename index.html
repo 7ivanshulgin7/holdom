@@ -7,38 +7,63 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
   <title>holdom — дома</title>
 </head>
 <body>
   <main class="dashboard">
-    <header class="topbar"><div class="brand"><span class="brand-mark">h</span><span>holdom</span></div><div class="home-label"><i></i> ДОМА</div><button type="button" id="settings-button" class="avatar" aria-label="Настройки" aria-expanded="false" aria-controls="settings">⚙</button></header>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">h</span>holdom</div>
+      <button type="button" id="settings-button" class="avatar" aria-label="Настройки" aria-expanded="false" aria-controls="settings">⚙</button>
+    </header>
     <section id="settings" class="screen-settings hidden" aria-label="Настройки">
       <label for="keep-screen-on"><input type="checkbox" id="keep-screen-on"> Не гасить экран</label>
       <p id="screen-status" role="status"></p>
     </section>
-    <section class="hero">
-      <div><div id="date" class="date"></div><div id="clock" class="clock">--:--</div><div class="greeting">Добро пожаловать домой <span>✳</span></div></div>
-      <div class="weather"><div class="sun">☀</div><div><strong>18°</strong><small>Ясно · Москва</small></div></div>
-    </section>
-    <nav class="tabs" aria-label="Разделы"><button class="tab active" data-tab="today">Сегодня <span class="tab-count">3</span></button><button class="tab" data-tab="shopping">Покупки <span id="shopping-count" class="tab-count">0</span></button><button class="tab" data-tab="home">Дом</button></nav>
-    <section id="today" class="content active">
-      <div class="section-head"><div><p class="eyebrow">ПЯТНИЦА · 20 НОЯБРЯ</p><h1>Планы семьи</h1></div><button class="quiet-button">Открыть календарь ↗</button></div>
-      <div class="event-list">
-        <article class="event"><div class="event-time">09:30<small>сегодня</small></div><div class="event-line pink"></div><div class="event-info"><strong>Забрать посылку</strong><span>Иван · пункт выдачи</span></div><span class="person pink-bg">И</span></article>
-        <article class="event"><div class="event-time">16:00<small>сегодня</small></div><div class="event-line blue"></div><div class="event-info"><strong>Музыкалка</strong><span>Лера · взять ноты</span></div><span class="person blue-bg">Л</span></article>
-        <article class="event"><div class="event-time">19:00<small>сегодня</small></div><div class="event-line green"></div><div class="event-info"><strong>Ужин у родителей</strong><span>Все вместе</span></div><span class="person green-bg">С</span></article>
+    <div class="board">
+      <div class="left-column">
+        <section class="hero" aria-label="Часы">
+          <div id="clock" class="clock">--:--</div>
+          <div id="date" class="date"></div>
+        </section>
+        <section class="panel home-panel" aria-labelledby="home-title">
+          <div class="section-head"><h2 id="home-title">Домашние дела</h2><span class="demo">Пример</span></div>
+          <p class="chore">Полить цветы</p>
+        </section>
+        <div class="assistant-card">
+          <span class="jo" aria-hidden="true">J</span>
+          <div><strong>Джо</strong><small>Голосовой помощник пока не подключён</small></div>
+        </div>
       </div>
-      <div class="bottom-grid"><div class="note-card"><div class="card-icon">✦</div><div><span class="eyebrow">ДОМАШНЕЕ ДЕЛО</span><p>Полить цветы</p><small>Джо напомнит вечером</small></div><button class="check" aria-label="Отметить выполненным">✓</button></div><div class="assistant-card"><div class="jo">J</div><div><span class="eyebrow">ДЖО</span><p>Чем помочь?</p><small>Скажи: «добавь молоко в покупки»</small></div><button class="mic" aria-label="Голосовой ввод">◉</button></div></div>
-    </section>
-    <section id="shopping" class="content hidden"><div class="section-head"><div><p class="eyebrow">СПИСОК СЕМЬИ</p><h1>Купить</h1></div><button class="quiet-button" id="clear-done">Убрать купленное</button></div><form id="shopping-form" class="add-form"><input id="shopping-input" autocomplete="off" placeholder="Что добавить? Например, молоко"><button type="submit">＋</button></form><ul id="shopping-list" class="shopping-list"></ul><p class="hint">Список сохраняется на этом планшете. Скоро Джо сможет добавлять покупки голосом.</p></section>
-    <section id="home" class="content hidden"><div class="section-head"><div><p class="eyebrow">НАША СЕМЬЯ</p><h1>Дома</h1></div></div><div class="home-card"><div class="jo large">J</div><div><strong>Джо</strong><p>Домашний помощник</p><small>Пока учится вести семейный список</small></div><span class="status">● онлайн</span></div><div class="home-card muted-card"><div class="calendar-icon">▦</div><div><strong>Кто когда</strong><p>Семейный календарь</p><small>Подключим отдельного пользователя «Дом»</small></div><span class="connect">скоро</span></div></section>
+      <div class="right-column">
+        <section class="panel" aria-labelledby="today-title">
+          <div class="section-head"><h2 id="today-title">Планы на сегодня</h2><span class="demo">Примеры</span></div>
+          <div class="event-list">
+            <article class="event"><div class="event-time">09:30</div><div class="event-info pink"><strong>Забрать посылку</strong><span>Иван · пункт выдачи</span></div></article>
+            <article class="event"><div class="event-time">16:00</div><div class="event-info blue"><strong>Музыкалка</strong><span>Лера · взять ноты</span></div></article>
+            <article class="event"><div class="event-time">19:00</div><div class="event-info green"><strong>Ужин у родителей</strong><span>Все вместе</span></div></article>
+          </div>
+        </section>
+        <section class="panel" aria-labelledby="shopping-title">
+          <div class="section-head">
+            <h2 id="shopping-title">Покупки <span id="shopping-count" class="shopping-count">0</span></h2>
+            <button type="button" class="quiet-button" id="clear-done">Убрать купленное</button>
+          </div>
+          <form id="shopping-form" class="add-form">
+            <input id="shopping-input" autocomplete="off" aria-label="Новая покупка" placeholder="Что купить?">
+            <button type="submit" aria-label="Добавить покупку">+</button>
+          </form>
+          <ul id="shopping-list" class="shopping-list"></ul>
+          <p id="shopping-empty" class="hint">Список пока пуст.</p>
+        </section>
+      </div>
+    </div>
     <footer class="app-signature">
       <img src="itivan-sign.svg" alt="itivan">
       <span id="app-version"></span>
     </footer>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>
