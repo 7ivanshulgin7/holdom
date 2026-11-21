@@ -687,6 +687,7 @@
   }
 
   function openJoDraft(draft) {
+    if (!draft) stopCloudVoice('');
     if (!draft && !state) { setSettingsOpen(true); return; }
     setJoOpen(true);
     reviewingCloudDraft = !!draft;
@@ -726,6 +727,7 @@
   }
 
   function openNote(text) {
+    stopCloudVoice('');
     if (reviewingCloudDraft) setJoOpen(false);
     noteStatus.textContent = '';
     try { renderNotes(loadNotes()); }
@@ -753,10 +755,12 @@
       if (event.text !== undefined) voiceStatus(event.text);
     } else if (event.type === 'recording') {
       joAdd.classList.add('is-listening');
-      voiceStatus('Джованни слушает…');
+      voiceStatus(event.followUp ? 'Джованни слушает. Можно задать следующий вопрос.' : 'Джованни слушает…');
     } else if (event.type === 'waiting') {
       joAdd.classList.remove('is-listening');
       voiceStatus('Джованни готовит ответ…');
+    } else if (event.type === 'speaking') {
+      voiceStatus('Джованни отвечает…');
     } else if (event.type === 'transcript') {
       addChatMessage('user', event.text);
     } else if (event.type === 'answer') {
@@ -793,8 +797,12 @@
       active.abort();
     }
     try {
-      cloudVoice = window.HoldomVoiceTurn.start(voiceSettings.address, voiceSettings.code, voiceEvent, chatHistory,
-        cloudDraft ? { draft: true, reviewing: reviewingCloudDraft } : null);
+      cloudVoice = window.HoldomVoiceTurn.start(voiceSettings.address, voiceSettings.code, voiceEvent, function () {
+        return {
+          history: chatHistory,
+          actions: cloudDraft ? { draft: true, reviewing: reviewingCloudDraft } : null
+        };
+      });
       joAdd.classList.add('is-working');
       joCloud.textContent = 'Остановить';
       joVoiceAction.textContent = 'Остановить';
@@ -810,6 +818,7 @@
     settings.classList.toggle('hidden', !open);
     settingsButton.setAttribute('aria-expanded', String(open));
     if (open) {
+      stopCloudVoice('');
       showVoiceSettings();
       if (state) renderPeopleResults();
     }
