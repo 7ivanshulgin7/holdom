@@ -99,6 +99,13 @@ button:focus, input:focus { outline: 2px solid #d1f17b; outline-offset: 2px; }
 .calendar-actions > * + * { margin-left: 6px; }
 .calendar-actions a { display: inline-flex; align-items: center; text-decoration: none; }
 .calendar-connect label { display: block; font-size: 14px; margin-bottom: 6px; }
+.calendar-people { border-top: 1px solid #333e32; padding-top: 12px; margin-top: 12px; }
+.calendar-people label { display: block; font-size: 14px; margin-bottom: 6px; }
+.people-results { list-style: none; margin: 0; padding: 0; }
+.people-result { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 4px 0; }
+.people-result + .people-result { border-top: 1px solid #333e32; }
+.people-result small { display: block; color: #b7c2b1; font-size: 13px; }
+.people-result button { margin-left: 8px; }
 .connect-row { display: flex; }
 .connect-row input { flex: 1; min-width: 0; margin-right: 8px; min-height: 44px; padding: 8px; color: #f6f4e9; background: #131b14; border: 1px solid #495744; border-radius: 9px; }
 .hint { margin: 8px 0; color: #b7c2b1; font-size: 14px; }

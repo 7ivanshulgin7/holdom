@@ -1,5 +1,5 @@
 (function () {
-  const endpoint = 'https://d5d6pof8q0gpe24mebt8.l5v6loqa.apigw.yandexcloud.net/state';
+  const endpoint = 'https://d5d6pof8q0gpe24mebt8.l5v6loqa.apigw.yandexcloud.net';
   const storageKey = 'holdom-calendar-key';
   const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
     'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
@@ -8,6 +8,12 @@
   const disconnect = $('#calendar-disconnect');
   const calendarLink = $('#open-kto-kogda');
   const linkStatus = $('#calendar-link-status');
+  const peopleButton = $('#calendar-people-button');
+  const peoplePanel = $('#calendar-people');
+  const peopleForm = $('#people-search');
+  const peopleQuery = $('#people-query');
+  const peopleStatus = $('#people-status');
+  const peopleResults = $('#people-results');
   const status = $('#calendar-status');
   const days = $('#calendar-days');
   const agenda = $('#calendar-agenda');
@@ -19,6 +25,8 @@
   let state = null;
   let key = '';
   let request = null;
+  let peopleRequest = null;
+  let foundPeople = [];
 
   try { key = localStorage.getItem(storageKey) || ''; } catch (_) {}
 
@@ -169,6 +177,7 @@
   function showConnection(message) {
     form.classList.toggle('hidden', !!key);
     disconnect.classList.toggle('hidden', !key);
+    peopleButton.classList.toggle('hidden', !state);
     status.textContent = message;
   }
 
@@ -177,6 +186,18 @@
     request = null;
     key = '';
     state = null;
+    if (peopleRequest) {
+      const pendingPeopleRequest = peopleRequest;
+      peopleRequest = null;
+      pendingPeopleRequest.abort();
+    }
+    foundPeople = [];
+    peoplePanel.classList.add('hidden');
+    peopleButton.setAttribute('aria-expanded', 'false');
+    peopleQuery.value = '';
+    peopleStatus.textContent = '';
+    peopleResults.textContent = '';
+    peopleForm.querySelector('button').disabled = false;
     keyField.value = '';
     linkStatus.textContent = '';
     try { localStorage.removeItem(storageKey); } catch (_) {}
@@ -190,7 +211,7 @@
     request = xhr;
     const submit = form.querySelector('button');
     submit.disabled = true;
-    xhr.open('GET', endpoint, true);
+    xhr.open('GET', endpoint + '/state', true);
     xhr.timeout = 12000;
     xhr.setRequestHeader('Authorization', 'Bearer ' + candidate);
     xhr.onloadend = function () {
@@ -218,8 +239,98 @@
       try { localStorage.setItem(storageKey, key); } catch (_) {}
       showConnection('Подключён аккаунт: ' + state.me.name);
       render();
+      if (!peoplePanel.classList.contains('hidden')) renderPeopleResults();
     };
     xhr.send();
+  }
+
+  function renderPeopleResults() {
+    peopleResults.textContent = '';
+    if (!state) return;
+    const links = state.links || {};
+    const results = foundPeople.slice();
+    (links.incoming || []).forEach(function (id) {
+      if (results.some(function (person) { return person.id === id; })) return;
+      const person = state.people.find(function (item) { return item.id === id; });
+      if (person) results.push(person);
+    });
+    results.forEach(function (person) {
+      const row = document.createElement('li');
+      row.className = 'people-result';
+      const label = document.createElement('div');
+      const nick = document.createElement('small');
+      label.textContent = person.name;
+      nick.textContent = '@' + person.id;
+      label.appendChild(nick);
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.className = 'quiet-button';
+      if ((links.friends || []).indexOf(person.id) !== -1) {
+        action.disabled = true;
+        action.textContent = 'Уже в друзьях';
+      } else if ((links.outgoing || []).indexOf(person.id) !== -1) {
+        action.disabled = true;
+        action.textContent = 'Запрос отправлен';
+      } else {
+        action.textContent = (links.incoming || []).indexOf(person.id) !== -1 ? 'Принять' : 'Постучаться';
+        action.disabled = !!peopleRequest;
+        action.onclick = function () { knock(person); };
+      }
+      row.appendChild(label);
+      row.appendChild(action);
+      peopleResults.appendChild(row);
+    });
+  }
+
+  function requestPeople(method, path, onSuccess) {
+    if (!key || !state || peopleRequest) return;
+    const xhr = new XMLHttpRequest();
+    const submit = peopleForm.querySelector('button');
+    peopleRequest = xhr;
+    submit.disabled = true;
+    renderPeopleResults();
+    xhr.open(method, endpoint + path, true);
+    xhr.timeout = 12000;
+    xhr.setRequestHeader('Authorization', 'Bearer ' + key);
+    xhr.onloadend = function () {
+      if (peopleRequest !== xhr) return;
+      peopleRequest = null;
+      submit.disabled = false;
+      if (xhr.status === 401 || xhr.status === 403) {
+        syncCalendar(key);
+        peopleStatus.textContent = 'Не удалось подтвердить вход. Обновляю календарь…';
+        renderPeopleResults();
+        return;
+      }
+      let data;
+      try { data = JSON.parse(xhr.responseText); } catch (_) {}
+      if (xhr.status === 200 && data) onSuccess(data);
+      else peopleStatus.textContent = data && data.error || 'Не удалось связаться с «Кто когда».';
+      renderPeopleResults();
+    };
+    xhr.send();
+  }
+
+  function knock(person) {
+    peopleStatus.textContent = 'Отправляю…';
+    requestPeople('POST', '/links/' + encodeURIComponent(person.id), function (data) {
+      if (data.state !== 'friends' && data.state !== 'outgoing') {
+        peopleStatus.textContent = 'Сервер не подтвердил запрос.';
+        return;
+      }
+      const links = state.links || (state.links = {});
+      const group = data.state === 'friends' ? 'friends' : 'outgoing';
+      links[group] = (links[group] || []).concat(person.id);
+      peopleStatus.textContent = group === 'friends'
+        ? 'Вы теперь в друзьях: ' + person.name + '.'
+        : 'Запрос отправлен: @' + person.id + '.';
+      if (request) {
+        const pendingSync = request;
+        request = null;
+        pendingSync.abort();
+      }
+      syncCalendar(key);
+    });
   }
 
   function refresh() {
@@ -287,6 +398,26 @@
     const candidate = keyField.value.trim();
     if (/^[A-Za-z0-9_-]{16,64}$/.test(candidate)) syncCalendar(candidate);
     else showConnection('Вставьте ключ входа целиком.');
+  });
+  peopleButton.addEventListener('click', function () {
+    const open = peoplePanel.classList.contains('hidden');
+    peoplePanel.classList.toggle('hidden', !open);
+    peopleButton.setAttribute('aria-expanded', String(open));
+    if (open) renderPeopleResults();
+  });
+  peopleForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    const query = peopleQuery.value.trim().replace(/^@/, '').toLowerCase();
+    if (query.length < 2) {
+      peopleStatus.textContent = 'Введите хотя бы две буквы.';
+      return;
+    }
+    foundPeople = [];
+    peopleStatus.textContent = 'Ищу…';
+    requestPeople('GET', '/search/' + encodeURIComponent(query), function (data) {
+      foundPeople = Array.isArray(data.people) ? data.people : [];
+      peopleStatus.textContent = foundPeople.length ? '' : 'Никого не нашёл.';
+    });
   });
   render();
   showConnection('');

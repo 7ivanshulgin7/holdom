@@ -7,7 +7,7 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="stylesheet" href="style.css?v=12">
   <title>holdom — дома</title>
 </head>
 <body>
@@ -45,6 +45,8 @@
           <div class="section-head">
             <h2 id="calendar-title">Кто когда</h2>
             <div class="calendar-actions">
+              <button type="button" id="calendar-people-button" class="quiet-button hidden"
+                aria-expanded="false" aria-controls="calendar-people">Люди</button>
               <a id="open-kto-kogda" class="quiet-button" href="https://7ivanshulgin7.github.io/kto-kogda/">Открыть «Кто когда»</a>
               <button type="button" class="quiet-button hidden" id="calendar-disconnect">Отключить</button>
             </div>
@@ -58,6 +60,17 @@
           </form>
           <p id="calendar-status" class="hint" role="status"></p>
           <p id="calendar-link-status" class="hint" role="status"></p>
+          <section id="calendar-people" class="calendar-people hidden" aria-label="Люди в календаре">
+            <form id="people-search">
+              <label for="people-query">Имя или @ник</label>
+              <div class="connect-row">
+                <input id="people-query" type="search" autocomplete="off" maxlength="21" required>
+                <button type="submit" class="quiet-button">Найти</button>
+              </div>
+            </form>
+            <p id="people-status" class="hint" role="status"></p>
+            <ul id="people-results" class="people-results"></ul>
+          </section>
           <div class="calendar-nav">
             <button type="button" class="quiet-button" id="previous-month" aria-label="Предыдущий месяц">‹</button>
             <h3 id="calendar-month"></h3>
@@ -80,7 +93,7 @@
     </footer>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=11"></script>
-  <script src="calendar.js?v=11"></script>
+  <script src="app.js?v=12"></script>
+  <script src="calendar.js?v=12"></script>
 </body>
 </html>
