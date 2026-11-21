@@ -1,6 +1,6 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '19 от 22.11.2026';
+const APP_VER = '20 от 22.11.2026';
 $('#app-version').textContent = 'v' + APP_VER;
 
 const reloadParam = 'holdom-refresh';
@@ -16,15 +16,43 @@ $('#reload-button').addEventListener('click', function () {
   window.location.replace(url.href);
 });
 
-const clock = $('#clock');
+const themeSelect = $('#theme-select');
+const themeKey = 'holdom-theme';
+const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+function applyTheme(mode) {
+  const dark = mode === 'dark' || (mode === 'auto' && systemDark.matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  $('meta[name="theme-color"]').content = dark ? '#000000' : '#f2f2f7';
+}
+
+try {
+  const savedTheme = localStorage.getItem(themeKey);
+  if (savedTheme === 'light' || savedTheme === 'dark') themeSelect.value = savedTheme;
+} catch (_) {}
+applyTheme(themeSelect.value);
+systemDark.addListener(function () { applyTheme(themeSelect.value); });
+themeSelect.addEventListener('change', function () {
+  applyTheme(themeSelect.value);
+  try { localStorage.setItem(themeKey, themeSelect.value); } catch (_) {}
+});
+
+const clockFace = $('#jo-add');
+const clockHours = $('#clock-hours');
+const clockMinutes = $('#clock-minutes');
 const dateEl = $('#date');
 const weekdays = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
 const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
 function tick() {
   const now = new Date();
-  const time = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+  const hours = ('0' + now.getHours()).slice(-2);
+  const minutes = ('0' + now.getMinutes()).slice(-2);
   const date = weekdays[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()];
-  if (clock.textContent !== time) clock.textContent = time;
+  if (clockHours.textContent !== hours || clockMinutes.textContent !== minutes) {
+    clockHours.textContent = hours;
+    clockMinutes.textContent = minutes;
+    clockFace.setAttribute('aria-label', hours + ':' + minutes + '. Открыть Джованни');
+  }
   if (dateEl.textContent !== date) dateEl.textContent = date;
 }
 tick();

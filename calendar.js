@@ -77,6 +77,7 @@
   let awaitingCommandUntil = 0;
   let voiceConfirm = false;
   let voiceSettings = null;
+  let voiceReadFailed = false;
   let recordingCloudVoice = false;
   let cloudVoice = null;
   let expandingFeed = false;
@@ -85,7 +86,7 @@
   try {
     const savedVoice = JSON.parse(localStorage.getItem(voiceSettingsKey) || 'null');
     if (savedVoice) voiceSettings = readVoiceSettings(savedVoice.address, savedVoice.code);
-  } catch (_) {}
+  } catch (_) { voiceReadFailed = true; }
   try { showPast = localStorage.getItem(showPastStorageKey) === '1'; } catch (_) {}
   if (showPast) firstMonth -= 2;
   showPastControl.checked = showPast;
@@ -597,17 +598,30 @@
       const url = new URL(address);
       if (url.protocol === 'https:' && url.host === 'functions.yandexcloud.net' &&
           /^\/[a-z0-9]{20}$/.test(url.pathname) &&
-          !url.username && !url.password && !url.search && !url.hash) return { address: url.href, code: code };
+          !url.username && !url.password && !url.search && !url.hash) return { address: url.href, code: code.toLowerCase() };
     } catch (_) {}
     return null;
   }
 
   function showVoiceSettings() {
-    joCloud.classList.toggle('hidden', !voiceSettings);
-    joCloud.disabled = !window.HoldomVoiceTurn || !window.HoldomVoiceTurn.supported();
+    syncCloudVoiceButton();
     voiceServerAddress.value = voiceSettings ? voiceSettings.address : defaultVoiceAddress;
     voiceServerCode.value = '';
     voiceServerCode.placeholder = voiceSettings ? 'Код уже сохранён' : '';
+    if (voiceSettings) setVoiceStatus('Код сохранён на этом планшете.', 'is-saved');
+    else if (voiceReadFailed) setVoiceStatus('Не удалось прочитать код из хранилища браузера.', 'is-error');
+    else setVoiceStatus('Код ещё не сохранён.');
+  }
+
+  function syncCloudVoiceButton() {
+    joCloud.classList.toggle('hidden', !voiceSettings);
+    joCloud.disabled = !!cloudVoice || !window.HoldomVoiceTurn || !window.HoldomVoiceTurn.supported();
+  }
+
+  function setVoiceStatus(message, stateClass) {
+    voiceServerStatus.textContent = message;
+    voiceServerStatus.classList.toggle('is-saved', stateClass === 'is-saved');
+    voiceServerStatus.classList.toggle('is-error', stateClass === 'is-error');
   }
 
   function stopCloudVoice(message) {
@@ -618,7 +632,7 @@
     if (event.type === 'closed') {
       cloudVoice = null;
       recordingCloudVoice = false;
-      showVoiceSettings();
+      syncCloudVoiceButton();
       joCloud.textContent = 'Поговорить с Джованни';
       joCloud.setAttribute('aria-pressed', 'false');
       joVoice.disabled = !SpeechRecognition;
@@ -1186,23 +1200,38 @@
     const address = voiceServerAddress.value.trim();
     const enteredCode = voiceServerCode.value.trim();
     if (!address && !enteredCode) {
+      try {
+        localStorage.removeItem(voiceSettingsKey);
+      } catch (_) {
+        setVoiceStatus('Браузер не смог удалить сохранённый код.', 'is-error');
+        return;
+      }
       voiceSettings = null;
-      try { localStorage.removeItem(voiceSettingsKey); } catch (_) {}
+      voiceReadFailed = false;
       showVoiceSettings();
-      voiceServerStatus.textContent = 'Облачное подключение удалено.';
       return;
     }
     const targetAddress = address || defaultVoiceAddress;
     const code = enteredCode || (voiceSettings && voiceSettings.address === targetAddress ? voiceSettings.code : '');
     const candidate = readVoiceSettings(targetAddress, code);
     if (!candidate) {
-      voiceServerStatus.textContent = code ? 'Проверьте адрес функции и код подключения.' : 'Введите код подключения планшета.';
+      const message = !code ? 'Введите код подключения планшета.'
+        : !/^[a-f0-9]{64}$/i.test(code) ? 'В коде должно быть 64 символа: цифры и буквы A–F.'
+        : 'Проверьте адрес функции.';
+      setVoiceStatus(message, 'is-error');
+      return;
+    }
+    try {
+      const saved = JSON.stringify(candidate);
+      localStorage.setItem(voiceSettingsKey, saved);
+      if (localStorage.getItem(voiceSettingsKey) !== saved) throw new Error('Voice settings were not stored');
+    } catch (_) {
+      setVoiceStatus('Браузер не сохранил код. Проверьте, разрешено ли сайту хранить данные.', 'is-error');
       return;
     }
     voiceSettings = candidate;
-    try { localStorage.setItem(voiceSettingsKey, JSON.stringify(candidate)); } catch (_) {}
+    voiceReadFailed = false;
     showVoiceSettings();
-    voiceServerStatus.textContent = 'Подключение сохранено. Откройте Джованни, чтобы поговорить.';
   });
   joCloud.addEventListener('click', function () {
     if (recordingCloudVoice) cloudVoice.send();
