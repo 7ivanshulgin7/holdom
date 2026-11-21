@@ -45,7 +45,12 @@
     <p id="fullscreen-status" class="screen-status hidden" role="status"></p>
     <div class="board">
       <div class="left-column">
-        <div class="left-upper">
+        <div class="nearest-slot">
+          <section id="calendar-nearest" class="panel nearest-panel hidden" aria-labelledby="nearest-label">
+          <h2 id="nearest-label">Ближайшие дела</h2>
+          <ul id="nearest-items" class="nearest-items"></ul>
+        </section>
+        </div>
         <section class="hero" aria-label="Часы Джованни">
           <button type="button" id="jo-add" class="clock-face" aria-label="Открыть Джованни"
             aria-controls="jo-chat">
@@ -70,13 +75,6 @@
             <button type="button" id="jo-connect" class="quiet-button hidden">Настроить голос</button>
           </div>
         </section>
-        </div>
-        <div class="left-lower">
-        <section id="calendar-nearest" class="panel nearest-panel hidden" aria-labelledby="nearest-label">
-          <h2 id="nearest-label">Ближайшие дела</h2>
-          <ul id="nearest-items" class="nearest-items"></ul>
-        </section>
-        </div>
       </div>
       <div class="right-column">
         <section class="panel calendar-panel" aria-label="Календарь «Кто когда»">

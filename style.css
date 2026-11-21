@@ -377,17 +377,17 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
   .left-column { display: flex; flex-direction: column; flex: 0 0 41%; min-width: 0; padding-right: 12px; }
   .right-column { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
   .left-column > *, .right-column > * { flex-shrink: 0; }
-  .left-column > .left-upper, .left-column > .left-lower { flex: 1 1 0; min-height: 0; }
-  .left-upper { display: flex; flex-direction: column; padding-bottom: 6px; }
-  .left-lower { display: flex; flex-direction: column; padding-top: 6px; overflow: auto; }
-  .left-upper > .hero { flex-shrink: 0; }
-  .left-upper > .jo-chat { display: flex; flex-direction: column; flex: 1 1 auto; margin-bottom: 0; padding: 6px 10px; }
-  .jo-chat-messages { flex: 1 1 auto; min-height: 0; max-height: none; }
+  .left-column > * { flex: 1 1 0; min-height: 0; margin: 0; box-sizing: border-box; }
+  .left-column > * + * { margin-top: 6px; }
+  .nearest-slot { overflow-y: auto; }
+  .left-column > .hero, .left-column > .jo-chat { display: flex; flex-direction: column; padding: 0 10px; overflow-y: auto; }
+  .left-column > .hero { align-items: center; justify-content: center; text-align: center; }
+  .left-column > .jo-chat { justify-content: center; }  .jo-chat-messages { flex: 1 1 auto; min-height: 0; max-height: none; }
   .jo-chat-actions, #jo-chat-status { flex-shrink: 0; }
   .hero { padding: 9px 14px; margin-bottom: 6px; }
   .clock { font-size: 8vw; }
   .date { font-size: 25px; }
-  .left-lower .nearest-panel { margin-bottom: 0; }
+  .nearest-slot .nearest-panel { margin-bottom: 0; }
   .right-column .panel { padding: 7px 11px; margin-bottom: 7px; }
   .right-column > .calendar-panel {
     display: flex;
