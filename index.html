@@ -7,7 +7,7 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=17">
+  <link rel="stylesheet" href="style.css?v=18">
   <title>holdom — дома</title>
 </head>
 <body>
@@ -20,6 +20,7 @@
       <div class="screen-actions">
         <button type="button" id="keep-screen-on" class="quiet-button screen-button" aria-pressed="false">Не гасить экран</button>
         <button type="button" id="fullscreen-button" class="quiet-button screen-button" aria-pressed="false">На весь экран</button>
+        <button type="button" id="reload-button" class="quiet-button screen-button">Обновить</button>
       </div>
     </header>
     <p id="screen-status" class="screen-status hidden" role="status"></p>
@@ -142,8 +143,8 @@
     </div>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=17"></script>
-  <script src="voice-turn.js?v=17"></script>
-  <script src="calendar.js?v=17"></script>
+  <script src="app.js?v=18"></script>
+  <script src="voice-turn.js?v=18"></script>
+  <script src="calendar.js?v=18"></script>
 </body>
 </html>

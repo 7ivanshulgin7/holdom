@@ -1,7 +1,21 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '17 от 21.11.2026';
+const APP_VER = '18 от 22.11.2026';
 $('#app-version').textContent = 'v' + APP_VER;
+
+const reloadParam = 'holdom-refresh';
+const pageUrl = new URL(window.location.href);
+if (pageUrl.searchParams.has(reloadParam)) {
+  pageUrl.searchParams.delete(reloadParam);
+  window.history.replaceState(window.history.state, '', pageUrl.href);
+}
+$('#reload-button').addEventListener('click', function () {
+  const url = new URL(window.location.href);
+  // Свежий адрес обходит сохранённую копию HTML в Service Worker.
+  url.searchParams.set(reloadParam, String(Date.now()));
+  window.location.replace(url.href);
+});
+
 const clock = $('#clock');
 const dateEl = $('#date');
 const weekdays = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
