@@ -6,6 +6,9 @@ const origin = 'https://7ivanshulgin7.github.io';
 const rate = 44100;
 const maxInput = rate * 2 * 8;
 const maxOutput = rate * 2 * 8;
+const speechGapMs = 850;
+const chunkBytes = rate * 2 / 10;
+const endSilence = Buffer.alloc(chunkBytes).toString('base64');
 
 exports.handler = async function (event, context) {
   const suppliedOrigin = Object.entries(event.headers || {}).find(([name]) => name.toLowerCase() === 'origin');
@@ -105,7 +108,6 @@ function askGiovanni(audio, folder, token, history, actions) {
     let userTranscript = '';
     let completed;
     let sent = false;
-    let committed = false;
     let phase = 'handshake';
     let finished = false;
 
@@ -154,7 +156,7 @@ function askGiovanni(audio, folder, token, history, actions) {
           output_modalities: ['audio'],
           max_output_tokens: 150,
           audio: {
-            input: { format, turn_detection: null },
+            input: { format, turn_detection: { type: 'server_vad', threshold: 0.5, silence_duration_ms: speechGapMs } },
             output: { format, voice: 'anton', role: 'good' },
           },
           tools: [{
@@ -183,22 +185,28 @@ function askGiovanni(audio, folder, token, history, actions) {
         case 'session.updated':
           if (sent) break;
           sent = true;
-          phase = 'audio';
+          phase = 'speech_start';
           for (const item of history) {
             send({ type: 'conversation.item.create', item: { type: 'message', role: item.role,
               content: [{ type: item.role === 'user' ? 'input_text' : 'output_text', text: item.text.slice(0, 280) }] } });
           }
-          for (let offset = 0; offset < audio.length; offset += 32768) {
-            send({ type: 'input_audio_buffer.append', audio: audio.subarray(offset, offset + 32768).toString('base64') });
+          for (let offset = 0; offset < audio.length; offset += chunkBytes) {
+            send({ type: 'input_audio_buffer.append', audio: audio.subarray(offset, offset + chunkBytes).toString('base64') });
           }
-          send({ type: 'input_audio_buffer.commit' });
+          // Длинная фраза может достичь лимита планшета до паузы.
+          for (let ms = 0; ms < speechGapMs; ms += 100) {
+            send({ type: 'input_audio_buffer.append', audio: endSilence });
+          }
           break;
+        case 'input_audio_buffer.speech_started':
+          if (phase === 'speech_start') phase = 'speech_end';
+          break;
+        case 'input_audio_buffer.speech_stopped':
         case 'input_audio_buffer.committed':
-          if (sent && !committed) {
-            committed = true;
-            phase = 'response';
-            send({ type: 'response.create' });
-          }
+          if (phase === 'speech_start' || phase === 'speech_end') phase = 'response';
+          break;
+        case 'response.created':
+          phase = 'response';
           break;
         case 'conversation.item.input_audio_transcription.completed':
           if (typeof message.transcript === 'string') userTranscript = message.transcript.trim().slice(0, 280);
