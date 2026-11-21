@@ -1,7 +1,14 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '21 от 22.11.2026';
+const APP_VER = '22 от 22.11.2026';
 $('#app-version').textContent = 'v' + APP_VER;
+
+function usePointerFocus() { document.documentElement.classList.add('pointer-focus'); }
+document.addEventListener('mousedown', usePointerFocus, true);
+document.addEventListener('touchstart', usePointerFocus, { capture: true, passive: true });
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'Tab' || event.keyCode === 9) document.documentElement.classList.remove('pointer-focus');
+}, true);
 
 const reloadParam = 'holdom-refresh';
 const pageUrl = new URL(window.location.href);

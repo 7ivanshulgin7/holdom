@@ -108,7 +108,13 @@
         if (closed) return;
         if (request.status === 401) { stop('Проверьте код подключения планшета.'); return; }
         if (request.status === 503) { stop('Проверьте настройки голосовой функции в Яндекс Cloud.'); return; }
-        if (request.status !== 200) { stop('Джованни сейчас недоступен. Попробуйте ещё раз.'); return; }
+        if (request.status !== 200) {
+          let issue;
+          try { issue = JSON.parse(request.responseText); } catch (_) {}
+          const info = issue && typeof issue.stage === 'string' && /^[a-z0-9_-]{1,72}$/i.test(issue.stage) ? ' · ' + issue.stage : '';
+          stop('Джованни не ответил (HTTP ' + request.status + info + ').');
+          return;
+        }
         try { receive(JSON.parse(request.responseText)); }
         catch (_) { stop('Не удалось воспроизвести ответ Джованни.'); }
       };

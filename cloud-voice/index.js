@@ -53,8 +53,9 @@ exports.handler = async function (event, context) {
   try {
     return reply(200, await askGiovanni(audio, folder, context.token, history, actions));
   } catch (error) {
-    console.warn('Giovanni:', error.stage || 'request failed');
-    return reply(502, { error: 'upstream' });
+    const stage = error.stage || 'internal_error';
+    console.warn('Giovanni:', stage);
+    return reply(502, { error: 'upstream', stage });
   }
 };
 
@@ -95,7 +96,7 @@ function askGiovanni(audio, folder, token, history, actions) {
       handshakeTimeout: 6000,
       maxPayload: 1_048_576,
     });
-    const timer = setTimeout(() => finish('timeout'), 17000);
+    const timer = setTimeout(() => finish(phase + '_timeout'), 17000);
     let transcriptionTimer;
     const chunks = [];
     let bytes = 0;
@@ -104,6 +105,7 @@ function askGiovanni(audio, folder, token, history, actions) {
     let completed;
     let sent = false;
     let committed = false;
+    let phase = 'handshake';
     let finished = false;
 
     function finish(stage, result) {
@@ -122,7 +124,7 @@ function askGiovanni(audio, folder, token, history, actions) {
       if (!completed) return;
       const action = draftAction(userTranscript, actions);
       const draft = action || (actions && actions.reviewing) ? null : completed.draft;
-      if (!draft && !action && !bytes && !transcript) return finish('empty response');
+      if (!draft && !action && !bytes && !transcript) return finish('empty_response');
       const evenBytes = bytes - bytes % 2;
       const actionText = {
         new_note: 'Открываю заметки.', new_event: 'Открываю форму дела.',
@@ -132,47 +134,55 @@ function askGiovanni(audio, folder, token, history, actions) {
         audio: action ? '' : Buffer.concat(chunks, evenBytes).toString('base64'), rate });
     }
 
-    socket.on('error', () => finish('connection'));
-    socket.on('close', () => finish('closed'));
-    socket.on('open', () => send({
-      type: 'session.update',
-      session: {
-        type: 'realtime',
-        instructions: 'Ты Джованни, добродушный итальянский домашний помощник. Отвечай на русском одним коротким предложением. ' +
-          'Сегодня в Москве ' + date + '. На вопросы отвечай по существу. Только если явно просят создать новое дело и известна дата, вызови prepare_event. ' +
-          'Если дата неясна, уточни её. Ты создаёшь только черновик. Календарь тебе недоступен.' +
-          (actions ? ' На экране уже есть черновик. Открытие, отмену и сохранение обрабатывает приложение. Не утверждай, что дело сохранено.' : ''),
-        output_modalities: ['audio'],
-        max_output_tokens: 150,
-        audio: {
-          input: { format, turn_detection: null },
-          output: { format, voice: 'anton', role: 'good' },
-        },
-        tools: [{
-          type: 'function',
-          name: 'prepare_event',
-          description: 'Показать черновик дела. Пользователь сохраняет его сам.',
-          parameters: {
-            type: 'object',
-            properties: {
-              title: { type: 'string' },
-              day: { type: 'string', description: 'Дата по Москве в формате ГГГГ-ММ-ДД' },
-              time: { type: 'string', description: 'ЧЧ:ММ или пустая строка' },
-            },
-            required: ['title', 'day', 'time'],
-            additionalProperties: false,
+    socket.on('unexpected-response', (_, response) => {
+      response.resume();
+      finish('handshake_' + response.statusCode);
+    });
+    socket.on('error', () => finish(phase + '_connection'));
+    socket.on('close', code => finish(phase + '_closed_' + code));
+    socket.on('open', () => {
+      phase = 'session';
+      send({
+        type: 'session.update',
+        session: {
+          type: 'realtime',
+          instructions: 'Ты Джованни, добродушный итальянский домашний помощник. Отвечай на русском одним коротким предложением. ' +
+            'Сегодня в Москве ' + date + '. На вопросы отвечай по существу. Только если явно просят создать новое дело и известна дата, вызови prepare_event. ' +
+            'Если дата неясна, уточни её. Ты создаёшь только черновик. Календарь тебе недоступен.' +
+            (actions ? ' На экране уже есть черновик. Открытие, отмену и сохранение обрабатывает приложение. Не утверждай, что дело сохранено.' : ''),
+          output_modalities: ['audio'],
+          max_output_tokens: 150,
+          audio: {
+            input: { format, turn_detection: null },
+            output: { format, voice: 'anton', role: 'good' },
           },
-        }],
-      },
-    }));
+          tools: [{
+            type: 'function',
+            name: 'prepare_event',
+            description: 'Показать черновик дела. Пользователь сохраняет его сам.',
+            parameters: {
+              type: 'object',
+              properties: {
+                title: { type: 'string' },
+                day: { type: 'string', description: 'Дата по Москве в формате ГГГГ-ММ-ДД' },
+                time: { type: 'string', description: 'ЧЧ:ММ или пустая строка' },
+              },
+              required: ['title', 'day', 'time'],
+              additionalProperties: false,
+            },
+          }],
+        },
+      });
+    });
 
     socket.on('message', body => {
       let message;
-      try { message = JSON.parse(body.toString()); } catch { return finish('invalid response'); }
+      try { message = JSON.parse(body.toString()); } catch { return finish('invalid_response'); }
       switch (message.type) {
         case 'session.updated':
           if (sent) break;
           sent = true;
+          phase = 'audio';
           for (const item of history) {
             send({ type: 'conversation.item.create', item: { type: 'message', role: item.role,
               content: [{ type: item.role === 'user' ? 'input_text' : 'output_text', text: item.text.slice(0, 280) }] } });
@@ -185,6 +195,7 @@ function askGiovanni(audio, folder, token, history, actions) {
         case 'input_audio_buffer.committed':
           if (sent && !committed) {
             committed = true;
+            phase = 'response';
             send({ type: 'response.create' });
           }
           break;
@@ -213,16 +224,19 @@ function askGiovanni(audio, folder, token, history, actions) {
           break;
         case 'response.done': {
           const response = message.response;
-          if (!response || response.status !== 'completed') return finish('incomplete response');
+          if (!response || response.status !== 'completed') return finish('incomplete_response');
           const draft = (Array.isArray(response.output) ? response.output : []).filter(Boolean).map(readDraft).find(Boolean) || null;
           completed = { draft };
           if (userTranscript) finishResponse();
           else transcriptionTimer = setTimeout(finishResponse, 750);
           break;
         }
-        case 'error':
-          finish('Realtime rejected request');
+        case 'error': {
+          const code = message.error?.code || message.error?.type;
+          const safeCode = typeof code === 'string' && /^[a-z0-9_-]{1,50}$/i.test(code) ? code : 'rejected';
+          finish(phase + '_' + safeCode);
           break;
+        }
       }
     });
   });

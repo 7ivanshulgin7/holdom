@@ -18,7 +18,6 @@
   const feed = $('#calendar-feed');
   const showPastControl = $('#show-past-days');
   const showPastStorageKey = 'holdom-show-past-days';
-  const monthView = $('#calendar-month-view');
   const dashboard = $('.dashboard');
   const gridSpace = $('#calendar-grid-space');
   const monthGrid = $('#calendar-grid');
@@ -98,6 +97,10 @@
   let cloudDraft = null;
   let reviewingCloudDraft = false;
   let expandingFeed = false;
+  let calendarNavigated = false;
+  let calendarTouching = false;
+  let snapTimer = 0;
+  const nativeMonthSnap = window.CSS && window.CSS.supports('scroll-snap-align', 'start');
 
   try { key = localStorage.getItem(storageKey) || ''; } catch (_) {}
   try {
@@ -118,15 +121,20 @@
   }
 
   function fitMonth() {
+    const anchor = firstVisibleMonth();
+    const fraction = anchor && feed.clientWidth ? (feed.scrollLeft - anchor.offsetLeft) / feed.clientWidth : 0;
     if (!window.matchMedia('(min-width: 700px) and (orientation: landscape)').matches) {
       dashboard.style.height = '';
       monthGrid.style.maxWidth = '';
-      return;
+      feed.style.height = '';
+    } else {
+      dashboard.style.height = window.innerHeight + 'px';
+      const feedHeight = Math.max(0, gridSpace.clientHeight - calendarWeekdays.offsetHeight);
+      const cellSize = Math.min(Math.floor(gridSpace.clientWidth / 7), Math.max(26, Math.floor((feedHeight - 28) / 6)));
+      monthGrid.style.maxWidth = cellSize > 0 ? (cellSize * 7) + 'px' : '';
+      feed.style.height = feedHeight > 0 ? feedHeight + 'px' : '';
     }
-    dashboard.style.height = window.innerHeight + 'px';
-    const room = gridSpace.clientHeight - calendarWeekdays.offsetHeight - 28;
-    const cellSize = Math.min(Math.floor(gridSpace.clientWidth / 7), Math.max(26, Math.floor(room / 6)));
-    monthGrid.style.maxWidth = cellSize > 0 ? (cellSize * 7) + 'px' : '';
+    if (anchor) feed.scrollLeft = anchor.offsetLeft + Math.round(fraction * feed.clientWidth);
   }
 
   function entriesFor(day, people) {
@@ -429,6 +437,7 @@
       number.textContent = day;
       button.appendChild(number);
       button.onclick = function () {
+        calendarNavigated = true;
         selected = date;
         agendaPage = 0;
         render();
@@ -440,9 +449,10 @@
 
   function firstVisibleMonth() {
     const months = feed.querySelectorAll('[data-month]');
+    const middle = feed.scrollLeft + feed.clientWidth / 2;
     let visible = months[0];
     for (let index = 0; index < months.length; index++) {
-      if (months[index].offsetTop > feed.scrollTop + 8) break;
+      if (months[index].offsetLeft > middle) break;
       visible = months[index];
     }
     return visible;
@@ -455,19 +465,17 @@
     $('#previous-month').disabled = !showPast && index <= monthIndex(new Date());
   }
 
-  function extraMonthsButton(label, onClick) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'quiet-button calendar-feed-more';
-    button.textContent = label;
-    button.onclick = onClick;
-    return button;
+  function goToToday() {
+    calendarNavigated = false;
+    selected = new Date();
+    agendaPage = 0;
+    render(monthIndex(selected));
   }
 
   function render(revealMonth) {
     const anchor = firstVisibleMonth();
     const anchorMonth = anchor ? Number(anchor.getAttribute('data-month')) : monthIndex(new Date());
-    const scrollOffset = anchor ? feed.scrollTop - anchor.offsetTop : 0;
+    const scrollOffset = anchor ? feed.scrollLeft - anchor.offsetLeft : 0;
     const currentMonth = monthIndex(new Date());
     if (!showPast) firstMonth = currentMonth;
     lastMonth = Math.max(lastMonth, currentMonth + 2);
@@ -481,26 +489,16 @@
     renderPeopleFilter(everyone);
     renderNearest(people);
     const contents = document.createDocumentFragment();
-    if (showPast) {
-      contents.appendChild(extraMonthsButton('Раньше', function () {
-        firstMonth -= 2;
-        render();
-      }));
-    }
     for (let index = firstMonth; index <= lastMonth; index++) {
       contents.appendChild(renderMonthBlock(index, today, activeDay, orderedPeople, people, patterns));
     }
-    contents.appendChild(extraMonthsButton('Следующие месяцы', function () {
-      lastMonth += 2;
-      render();
-    }));
     feed.textContent = '';
     feed.appendChild(contents);
     renderAgenda(people, activeDay);
     fitMonth();
     const target = typeof revealMonth === 'number' ? revealMonth : anchorMonth;
     const block = feed.querySelector('[data-month="' + target + '"]');
-    if (block) feed.scrollTop = block.offsetTop + (typeof revealMonth === 'number' ? 0 : scrollOffset);
+    if (block) feed.scrollLeft = block.offsetLeft + (typeof revealMonth === 'number' ? 0 : scrollOffset);
     updateMonthHeading();
   }
 
@@ -734,6 +732,7 @@
       joCloud.textContent = 'Задать вопрос';
       joVoiceAction.textContent = 'Сказать команду';
       joAdd.classList.remove('is-listening');
+      joAdd.classList.remove('is-working');
       joVoice.disabled = !SpeechRecognition;
       joWake.disabled = !SpeechRecognition;
       if (event.text !== undefined) voiceStatus(event.text);
@@ -781,6 +780,7 @@
     try {
       cloudVoice = window.HoldomVoiceTurn.start(voiceSettings.address, voiceSettings.code, voiceEvent, chatHistory,
         cloudDraft ? { draft: true, reviewing: reviewingCloudDraft } : null);
+      joAdd.classList.add('is-working');
       joCloud.textContent = 'Остановить';
       joVoiceAction.textContent = 'Остановить';
       joVoice.disabled = true;
@@ -1105,7 +1105,7 @@
       keyField.value = '';
       try { localStorage.setItem(storageKey, key); } catch (_) {}
       showConnection('Подключён аккаунт: ' + state.me.name, true);
-      render();
+      render(calendarNavigated ? undefined : monthIndex(new Date()));
       if (!settings.classList.contains('hidden')) {
         if (newConnection) setSettingsOpen(false);
         else renderPeopleResults();
@@ -1218,30 +1218,63 @@
     const current = monthIndex(new Date());
     const target = (visible ? Number(visible.getAttribute('data-month')) : current) + delta;
     if (target < current && !showPast) return;
+    calendarNavigated = true;
     if (target < firstMonth) firstMonth -= 2;
     if (target >= lastMonth) lastMonth += 2;
     const block = feed.querySelector('[data-month="' + target + '"]');
     if (block && target !== lastMonth) {
-      feed.scrollTop = block.offsetTop;
+      feed.scrollLeft = block.offsetLeft;
       updateMonthHeading();
     } else render(target);
   }
 
   $('#previous-month').onclick = function () { shiftMonth(-1); };
   $('#next-month').onclick = function () { shiftMonth(1); };
+  $('#calendar-today-button').onclick = goToToday;
   agendaPrev.onclick = function () { agendaPage--; render(); };
   agendaNext.onclick = function () { agendaPage++; render(); };
   filterPrev.onclick = function () { filterPage--; renderPeopleFilter(availablePeople()); };
   filterNext.onclick = function () { filterPage++; renderPeopleFilter(availablePeople()); };
+
+  function snapMonthIfNeeded() {
+    if (nativeMonthSnap || calendarTouching) return;
+    clearTimeout(snapTimer);
+    snapTimer = setTimeout(function () {
+      const block = firstVisibleMonth();
+      if (block && !calendarTouching) feed.scrollLeft = block.offsetLeft;
+    }, 160);
+  }
+
+  function markCalendarNavigation() { calendarNavigated = true; }
+
+  feed.addEventListener('pointerdown', markCalendarNavigation);
+  feed.addEventListener('wheel', markCalendarNavigation, { passive: true });
+  feed.addEventListener('keydown', markCalendarNavigation);
+  feed.addEventListener('touchstart', function () {
+    markCalendarNavigation();
+    calendarTouching = true;
+    clearTimeout(snapTimer);
+  }, { passive: true });
+  function finishMonthGesture() {
+    calendarTouching = false;
+    snapMonthIfNeeded();
+  }
+  feed.addEventListener('touchend', finishMonthGesture, { passive: true });
+  feed.addEventListener('touchcancel', finishMonthGesture, { passive: true });
   feed.addEventListener('scroll', function () {
     updateMonthHeading();
-    if (expandingFeed || feed.scrollTop < 1 || feed.scrollHeight - feed.clientHeight - feed.scrollTop > 24) return;
-    const top = feed.scrollTop;
+    snapMonthIfNeeded();
+    if (expandingFeed || !calendarNavigated || !feed.clientWidth) return;
+    const left = feed.scrollLeft;
+    const extendPast = showPast && left <= 1;
+    const extendFuture = feed.scrollWidth - feed.clientWidth - left <= 1;
+    if (!extendPast && !extendFuture) return;
     expandingFeed = true;
     requestAnimationFrame(function () {
       expandingFeed = false;
-      if (Math.abs(feed.scrollTop - top) > 24) return;
-      lastMonth += 2;
+      if (Math.abs(feed.scrollLeft - left) > 1) return;
+      if (extendPast && showPast) firstMonth -= 2;
+      if (extendFuture) lastMonth += 2;
       render();
     });
   }, { passive: true });
@@ -1255,35 +1288,6 @@
     render(current);
   });
 
-  let swipeStart = null;
-  let lastSwipe = 0;
-  monthView.addEventListener('touchstart', function (event) {
-    if (event.touches.length !== 1) {
-      swipeStart = null;
-      return;
-    }
-    const touch = event.touches[0];
-    swipeStart = { id: touch.identifier, x: touch.clientX, y: touch.clientY };
-  }, { passive: true });
-  monthView.addEventListener('touchcancel', function () { swipeStart = null; }, { passive: true });
-  monthView.addEventListener('touchend', function (event) {
-    const start = swipeStart;
-    swipeStart = null;
-    if (!start || event.changedTouches.length !== 1) return;
-    const touch = event.changedTouches[0];
-    if (touch.identifier !== start.id) return;
-    const dx = touch.clientX - start.x;
-    const dy = touch.clientY - start.y;
-    if (Math.abs(dx) < 55 || Math.abs(dx) < 1.5 * Math.abs(dy)) return;
-    lastSwipe = Date.now();
-    shiftMonth(dx < 0 ? 1 : -1);
-  }, { passive: true });
-  monthView.addEventListener('click', function (event) {
-    if (event.detail && Date.now() - lastSwipe < 320) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  }, true);
   disconnect.onclick = function () {
     forgetCalendar();
     form.querySelector('button').disabled = false;
@@ -1401,8 +1405,11 @@
   });
   joVoice.addEventListener('click', startVoice);
   joForm.addEventListener('submit', saveJoEvent);
-  render(monthIndex(new Date()));
   showConnection('');
+  goToToday();
+  requestAnimationFrame(function () {
+    if (!calendarNavigated) goToToday();
+  });
   refresh();
   setInterval(refresh, 60000);
   document.addEventListener('visibilitychange', refresh);

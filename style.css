@@ -39,6 +39,7 @@ body {
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; touch-action: manipulation; }
 button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+.pointer-focus button:focus { outline: none; }
 .hidden { display: none !important; }
 
 .dashboard {
@@ -68,7 +69,11 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
   background: var(--cell);
   animation: clock-eyes 21s ease-in-out infinite;
 }
-.clock-face.is-listening .clock-eye { background: var(--accent-soft); color: var(--accent-ink); }
+.clock-face.is-listening .clock-eye, .clock-face.is-working .clock-eye {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  animation: clock-active-eyes 4.5s ease-in-out infinite;
+}
 .clock-colon { flex: 0 0 auto; margin: 0 .06em; color: var(--muted); }
 .jo-smile {
   display: block; width: 24px; height: 9px; margin: 8px auto 0;
@@ -76,13 +81,20 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
 }
 #jo-listening { margin: 0; font-size: 12px; }
 @keyframes clock-eyes {
-  0%, 14%, 32%, 49%, 78%, 80%, 100% { transform: none; }
-  19%, 26% { transform: translate(4px, -2px); }
-  37%, 44% { transform: translate(-4px, 1px); }
-  79% { transform: scaleY(.12); }
+  0%, 30%, 44%, 70%, 84%, 100% { transform: none; }
+  34%, 40% { transform: translate(2px, -1px); }
+  79%, 81% { transform: translate(-2px, 1px); }
+  80% { transform: translate(-2px, 1px) scaleY(.20); }
+}
+@keyframes clock-active-eyes {
+  0%, 24%, 51%, 71%, 77%, 100% { transform: none; }
+  10%, 18% { transform: translate(6px, -2px); }
+  33%, 43% { transform: translate(-6px, -2px); }
+  74% { transform: scaleY(.18); }
+  88% { transform: translateY(-3px); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .clock-eye { animation: none; }
+  .clock-eye, .clock-face.is-listening .clock-eye, .clock-face.is-working .clock-eye { animation: none; }
 }
 .board-dialog {
   position: fixed;
@@ -181,6 +193,8 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
 
 .calendar-connect { margin: 12px 0; }
 .header-icon { flex: 0 0 44px; min-width: 44px; padding: 0; font-size: 23px; line-height: 1; }
+.settings-icon { display: block; margin: 0 auto; }
+.calendar-today-button { min-height: 32px; }
 .jo-form button + button { margin-left: 4px; }
 .jo-form button:disabled { opacity: .55; cursor: default; }
 .jo-chat { min-height: 0; }
@@ -233,13 +247,19 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
 .calendar-nav button { min-width: 44px; font-size: 24px; }
 .calendar-nav button:disabled { opacity: .45; cursor: default; }
 .calendar-panel h3 { margin: 8px 0; font-size: 17px; }
-.calendar-month-view { touch-action: pan-y; touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; }
+.calendar-month-view { -webkit-user-select: none; user-select: none; }
 .calendar-grid { width: 100%; margin: 0 auto; }
-.calendar-feed { position: relative; max-height: 62vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.calendar-feed::-webkit-scrollbar { width: 0; }
-.calendar-month-block { position: relative; padding-bottom: 5px; }
+.calendar-feed {
+  position: relative; display: flex; align-items: flex-start; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; overscroll-behavior-x: contain; overflow-anchor: none;
+  -webkit-overflow-scrolling: touch;
+}
+.calendar-feed::-webkit-scrollbar { display: none; }
+.calendar-month-block {
+  position: relative; flex: 0 0 100%; min-width: 0; min-height: 0; padding-bottom: 5px;
+  scroll-snap-align: start; scroll-snap-stop: always;
+}
 .calendar-month-label { margin: 3px 2px 5px; font-size: 14px; color: var(--muted); }
-.calendar-feed-more { display: block; width: 100%; margin: 4px 0; }
 .calendar-weekdays, .calendar-days { display: flex; flex-wrap: wrap; }
 .calendar-weekdays span, .calendar-cell { flex: 0 0 14.2857%; min-width: 0; text-align: center; }
 .calendar-weekdays span { padding: 5px 0; color: var(--muted); font-size: 13px; }
@@ -356,7 +376,8 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
   .calendar-grid-space { flex: 1 1 auto; min-height: 0; overflow: hidden; }
   .calendar-grid { height: 100%; display: flex; flex-direction: column; }
   .calendar-weekdays { flex-shrink: 0; }
-  .calendar-feed { flex: 1 1 auto; min-height: 0; max-height: none; }
+  .calendar-feed { flex: 0 0 auto; min-height: 0; }
+  .calendar-month-block { max-height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .calendar-weekdays span { padding: 3px 0; }
   .calendar-day { font-size: 16px; }
   #calendar-agenda { margin-top: 4px; }
