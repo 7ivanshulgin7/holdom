@@ -16,6 +16,7 @@
   const peopleResults = $('#people-results');
   const status = $('#calendar-status');
   const days = $('#calendar-days');
+  const monthView = $('#calendar-month-view');
   const agenda = $('#calendar-agenda');
   const events = $('#calendar-events');
   const nearest = $('#calendar-nearest');
@@ -111,8 +112,11 @@
 
     for (let cell = 0; cell < Math.ceil((offset + length) / 7) * 7; cell++) {
       const day = cell - offset + 1;
+      const square = document.createElement('div');
+      square.className = 'calendar-cell';
+      days.appendChild(square);
       if (day < 1 || day > length) {
-        days.appendChild(document.createElement('span'));
+        square.setAttribute('aria-hidden', 'true');
         continue;
       }
       const date = new Date(year, index, day);
@@ -147,7 +151,7 @@
         selected = date;
         render();
       };
-      days.appendChild(button);
+      square.appendChild(button);
     }
 
     agenda.classList.toggle('hidden', !state);
@@ -541,6 +545,36 @@
 
   $('#previous-month').onclick = function () { shiftMonth(-1); };
   $('#next-month').onclick = function () { shiftMonth(1); };
+
+  let swipeStart = null;
+  let lastSwipe = 0;
+  monthView.addEventListener('touchstart', function (event) {
+    if (event.touches.length !== 1) {
+      swipeStart = null;
+      return;
+    }
+    const touch = event.touches[0];
+    swipeStart = { id: touch.identifier, x: touch.clientX, y: touch.clientY };
+  }, { passive: true });
+  monthView.addEventListener('touchcancel', function () { swipeStart = null; }, { passive: true });
+  monthView.addEventListener('touchend', function (event) {
+    const start = swipeStart;
+    swipeStart = null;
+    if (!start || event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0];
+    if (touch.identifier !== start.id) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 55 || Math.abs(dx) < 1.5 * Math.abs(dy)) return;
+    lastSwipe = Date.now();
+    shiftMonth(dx < 0 ? 1 : -1);
+  }, { passive: true });
+  monthView.addEventListener('click', function (event) {
+    if (event.detail && Date.now() - lastSwipe < 320) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
   disconnect.onclick = function () {
     forgetCalendar();
     form.querySelector('button').disabled = false;

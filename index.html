@@ -7,7 +7,7 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=13">
+  <link rel="stylesheet" href="style.css?v=14">
   <title>holdom — дома</title>
 </head>
 <body>
@@ -71,13 +71,15 @@
             <p id="people-status" class="hint" role="status"></p>
             <ul id="people-results" class="people-results"></ul>
           </section>
-          <div class="calendar-nav">
-            <button type="button" class="quiet-button" id="previous-month" aria-label="Предыдущий месяц">‹</button>
-            <h3 id="calendar-month"></h3>
-            <button type="button" class="quiet-button" id="next-month" aria-label="Следующий месяц">›</button>
+          <div id="calendar-month-view" class="calendar-month-view">
+            <div class="calendar-nav">
+              <button type="button" class="quiet-button" id="previous-month" aria-label="Предыдущий месяц">‹</button>
+              <h3 id="calendar-month"></h3>
+              <button type="button" class="quiet-button" id="next-month" aria-label="Следующий месяц">›</button>
+            </div>
+            <div class="calendar-weekdays" aria-hidden="true"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
+            <div id="calendar-days" class="calendar-days"></div>
           </div>
-          <div class="calendar-weekdays" aria-hidden="true"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
-          <div id="calendar-days" class="calendar-days"></div>
           <div id="calendar-agenda" class="hidden">
             <h3 id="calendar-day-title"></h3>
             <div id="calendar-events" class="event-list"></div>
@@ -107,7 +109,7 @@
     </footer>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=13"></script>
-  <script src="calendar.js?v=13"></script>
+  <script src="app.js?v=14"></script>
+  <script src="calendar.js?v=14"></script>
 </body>
 </html>

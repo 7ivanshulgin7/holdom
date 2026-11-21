@@ -1,6 +1,6 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '13 от 21.11.2026';
+const APP_VER = '14 от 21.11.2026';
 $('#app-version').textContent = 'v' + APP_VER;
 const clock = $('#clock');
 const dateEl = $('#date');
