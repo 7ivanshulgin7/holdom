@@ -85,6 +85,13 @@ button:focus, input:focus { outline: 2px solid #d1f17b; outline-offset: 2px; }
 .chore { margin: 12px 0 2px; font-size: 17px; }
 .assistant-card { display: flex; align-items: center; padding: 12px 15px; margin-bottom: 12px; }
 .assistant-card small { display: block; margin-top: 3px; font-size: 13px; color: #b7c2b1; }
+.jo-info { flex: 1; min-width: 0; margin-right: 8px; }
+.jo-form { margin: 8px 0 0; }
+.jo-form label { display: block; margin: 8px 0 4px; font-size: 14px; }
+.jo-form input { width: 100%; min-height: 44px; padding: 8px; color: #f6f4e9; background: #131b14; border: 1px solid #495744; border-radius: 9px; font-size: 16px; }
+.jo-fields { display: flex; margin-bottom: 8px; }
+.jo-fields > div { flex: 1; min-width: 0; }
+.jo-fields > div + div { margin-left: 8px; }
 .jo { flex: none; font-size: 19px; font-weight: 700; }
 
 .event { display: flex; align-items: center; min-height: 50px; padding: 6px 0; }

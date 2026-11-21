@@ -19,6 +19,17 @@
   const agenda = $('#calendar-agenda');
   const events = $('#calendar-events');
   const nearest = $('#calendar-nearest');
+  const joAdd = $('#jo-add');
+  const joAccount = $('#jo-account');
+  const joForm = $('#jo-form');
+  const joVoice = $('#jo-voice');
+  const joTitle = $('#jo-title');
+  const joDate = $('#jo-date');
+  const joTime = $('#jo-time');
+  const joSave = $('#jo-save');
+  const joStatus = $('#jo-status');
+  const joResult = $('#jo-result');
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let selected = new Date();
   let month = new Date(selected.getFullYear(), selected.getMonth(), 1);
   let lastToday = dayKey(selected);
@@ -27,6 +38,9 @@
   let request = null;
   let peopleRequest = null;
   let foundPeople = [];
+  let draftId = '';
+  let saveRequest = null;
+  let recognition = null;
 
   try { key = localStorage.getItem(storageKey) || ''; } catch (_) {}
 
@@ -178,6 +192,8 @@
     form.classList.toggle('hidden', !!key);
     disconnect.classList.toggle('hidden', !key);
     peopleButton.classList.toggle('hidden', !state);
+    joAdd.disabled = !state;
+    joAccount.textContent = state ? 'Календарь: ' + state.me.name : 'Подключите календарь «Кто когда»';
     status.textContent = message;
   }
 
@@ -186,6 +202,12 @@
     request = null;
     key = '';
     state = null;
+    if (saveRequest) {
+      const pendingSave = saveRequest;
+      saveRequest = null;
+      pendingSave.abort();
+    }
+    resetJo();
     if (peopleRequest) {
       const pendingPeopleRequest = peopleRequest;
       peopleRequest = null;
@@ -202,6 +224,142 @@
     linkStatus.textContent = '';
     try { localStorage.removeItem(storageKey); } catch (_) {}
     render();
+  }
+
+  function setJoOpen(open) {
+    joForm.classList.toggle('hidden', !open);
+    joAdd.setAttribute('aria-expanded', String(open));
+    joAdd.textContent = open ? 'Свернуть' : 'Добавить дело';
+    if (!open && recognition) {
+      const active = recognition;
+      recognition = null;
+      active.abort();
+      joVoice.disabled = !SpeechRecognition;
+      joStatus.textContent = '';
+    }
+  }
+
+  function resetJo() {
+    setJoOpen(false);
+    joForm.reset();
+    joSave.disabled = false;
+    joResult.textContent = '';
+    joStatus.textContent = '';
+    draftId = '';
+  }
+
+  function voiceDraft(transcript) {
+    let title = transcript.toLowerCase().replace(/^(?:джо[, ]+)?(?:добавь|запиши|создай|поставь)(?: дело)?[\s,:]+/i, '').trim();
+    const date = new Date();
+    const dayWords = { сегодня: 0, завтра: 1, послезавтра: 2 };
+    title = title.replace(/(^|[\s,])(послезавтра|завтра|сегодня)(?=$|[\s,.!?])/i, function (_, before, word) {
+      date.setDate(date.getDate() + dayWords[word]);
+      return before;
+    });
+    let time = '';
+    function formatVoiceTime(hour, minutes, partOfDay) {
+      if ((partOfDay === 'дня' || partOfDay === 'вечера') && hour < 12) hour += 12;
+      if ((partOfDay === 'ночи' || partOfDay === 'утра') && hour === 12) hour = 0;
+      return ('0' + hour).slice(-2) + ':' + (minutes || '00');
+    }
+    title = title.replace(/(^|\s)в\s+([01]?\d|2[0-3])(?:(?:[:. ]([0-5]\d))|\s*(?:часов|часа|час))?(?:\s+(утра|дня|вечера|ночи))?(?=$|[\s,.!?])/i,
+      function (_, before, hours, minutes, partOfDay) {
+        time = formatVoiceTime(Number(hours), minutes, partOfDay);
+        return before;
+      });
+    if (!time) {
+      const hoursByWord = { час: 1, один: 1, два: 2, три: 3, четыре: 4, пять: 5, шесть: 6,
+        семь: 7, восемь: 8, девять: 9, десять: 10, одиннадцать: 11, двенадцать: 12 };
+      title = title.replace(/(^|\s)в\s+(час|один|два|три|четыре|пять|шесть|семь|восемь|девять|десять|одиннадцать|двенадцать)\s+(утра|дня|вечера|ночи)(?=$|[\s,.!?])/i,
+        function (_, before, hourWord, partOfDay) {
+          time = formatVoiceTime(hoursByWord[hourWord], '', partOfDay);
+          return before;
+        });
+    }
+    title = title.replace(/^[\s,.;!?]+|[\s,.;!?]+$/g, '').replace(/\s{2,}/g, ' ');
+    joTitle.value = ((title.charAt(0).toUpperCase() + title.slice(1)) || transcript).slice(0, 60);
+    joDate.value = dayKey(date);
+    joTime.value = time;
+  }
+
+  function startVoice() {
+    if (!SpeechRecognition || recognition) return;
+    const listener = new SpeechRecognition();
+    listener.lang = 'ru-RU';
+    recognition = listener;
+    joVoice.disabled = true;
+    joStatus.textContent = 'Говорите…';
+    listener.onresult = function (event) {
+      if (recognition !== listener) return;
+      voiceDraft(event.results[0][0].transcript);
+      joStatus.textContent = 'Проверьте дело, дату и время.';
+    };
+    listener.onerror = function () {
+      if (recognition === listener) joStatus.textContent = 'Диктовка не сработала. Дело можно вписать вручную.';
+    };
+    listener.onend = function () {
+      if (recognition !== listener) return;
+      recognition = null;
+      joVoice.disabled = false;
+      if (joStatus.textContent === 'Говорите…') joStatus.textContent = 'Речь не распознана. Попробуйте снова.';
+    };
+    try {
+      listener.start();
+    } catch (_) {
+      listener.onerror();
+      listener.onend();
+    }
+  }
+
+  function saveJoEvent(event) {
+    event.preventDefault();
+    if (!key || !state || saveRequest) return;
+    const what = joTitle.value.trim();
+    const date = joDate.value;
+    if (!what || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      joStatus.textContent = 'Укажите название и дату.';
+      return;
+    }
+    if (!draftId) draftId = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    const xhr = new XMLHttpRequest();
+    saveRequest = xhr;
+    joSave.disabled = true;
+    joStatus.textContent = 'Сохраняю…';
+    xhr.open('PUT', endpoint + '/entries/' + draftId, true);
+    xhr.timeout = 15000;
+    xhr.setRequestHeader('Authorization', 'Bearer ' + key);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.onloadend = function () {
+      if (saveRequest !== xhr) return;
+      saveRequest = null;
+      joSave.disabled = false;
+      let data;
+      try { data = JSON.parse(xhr.responseText); } catch (_) {}
+      if (xhr.status !== 200 || !data || !data.entry) {
+        joStatus.textContent = data && data.error || 'Сервер не подтвердил сохранение. Можно повторить.';
+        if (xhr.status === 401) syncCalendar(key);
+        return;
+      }
+      state.entries = state.entries.filter(function (entry) { return entry.id !== data.entry.id; });
+      state.entries.push(data.entry);
+      const parts = date.split('-');
+      selected = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+      month = new Date(selected.getFullYear(), selected.getMonth(), 1);
+      resetJo();
+      joResult.textContent = 'Добавлено: ' + data.entry.what;
+      render();
+      syncAfterMutation();
+    };
+    xhr.send(JSON.stringify({ entry: { what: what, from: date, to: date, tf: joTime.value, vis: 'all' } }));
+  }
+
+  function syncAfterMutation() {
+    if (request) {
+      const pendingSync = request;
+      request = null;
+      pendingSync.abort();
+    }
+    syncCalendar(key);
   }
 
   function syncCalendar(candidate) {
@@ -324,12 +482,7 @@
       peopleStatus.textContent = group === 'friends'
         ? 'Вы теперь в друзьях: ' + person.name + '.'
         : 'Запрос отправлен: @' + person.id + '.';
-      if (request) {
-        const pendingSync = request;
-        request = null;
-        pendingSync.abort();
-      }
-      syncCalendar(key);
+      syncAfterMutation();
     });
   }
 
@@ -419,6 +572,19 @@
       peopleStatus.textContent = foundPeople.length ? '' : 'Никого не нашёл.';
     });
   });
+  joVoice.disabled = !SpeechRecognition;
+  joAdd.addEventListener('click', function () {
+    const open = joForm.classList.contains('hidden');
+    setJoOpen(open);
+    if (open) {
+      joResult.textContent = '';
+      if (!joDate.value) joDate.value = dayKey(new Date());
+      joStatus.textContent = SpeechRecognition ? '' : 'Диктовка недоступна в этом браузере. Можно вписать дело.';
+      joForm.scrollIntoView(false);
+    }
+  });
+  joVoice.addEventListener('click', startVoice);
+  joForm.addEventListener('submit', saveJoEvent);
   render();
   showConnection('');
   refresh();
