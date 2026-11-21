@@ -28,6 +28,8 @@ const settings = $('#settings');
 const keepScreenOn = $('#keep-screen-on');
 const screenStatus = $('#screen-status');
 const wakeLockSupported = !!(navigator.wakeLock && navigator.wakeLock.request);
+const screenVideo = $('#screen-video');
+const videoSupported = !!screenVideo.canPlayType('video/mp4; codecs="avc1.42E01E"');
 let screenLock = null;
 let screenRequestPending = false;
 
@@ -41,11 +43,45 @@ function setScreenStatus(message) {
   screenStatus.textContent = message;
 }
 
+function updateVideoLock() {
+  if (!videoSupported) {
+    setScreenStatus('Этот браузер не поддерживает удержание экрана.');
+    return;
+  }
+  if (!keepScreenOn.checked || document.hidden) {
+    screenVideo.pause();
+    screenVideo.classList.add('hidden');
+    setScreenStatus(keepScreenOn.checked
+      ? 'Режим приостановлен, пока holdom не на экране.'
+      : 'Старый браузер. Для удержания экрана используем тихое видео.');
+    return;
+  }
+  screenVideo.classList.remove('hidden');
+  screenVideo.muted = true;
+  if (!screenVideo.getAttribute('src')) screenVideo.src = './keep-awake.mp4';
+  setScreenStatus('Запускаем видео для удержания экрана…');
+  const playback = screenVideo.play();
+  if (playback) playback.catch(videoLockFailed);
+}
+
+function videoLockFailed() {
+  if (!keepScreenOn.checked || document.hidden) return;
+  keepScreenOn.checked = false;
+  screenVideo.pause();
+  screenVideo.classList.add('hidden');
+  setScreenStatus('Видео не запустилось. Проверьте интернет и включите настройку ещё раз.');
+}
+
+screenVideo.addEventListener('error', videoLockFailed);
+screenVideo.addEventListener('playing', function () {
+  if (keepScreenOn.checked) {
+    setScreenStatus('Видео играет без звука. Проверьте, останется ли экран включённым.');
+  }
+});
+
 function updateScreenLock() {
   if (!wakeLockSupported) {
-    setScreenStatus(window.isSecureContext === false
-      ? 'Откройте holdom по HTTPS, чтобы включить удержание экрана.'
-      : 'Этот браузер не поддерживает удержание экрана.');
+    updateVideoLock();
     return;
   }
   if (!keepScreenOn.checked) {
@@ -84,12 +120,12 @@ function updateScreenLock() {
 }
 
 try {
-  keepScreenOn.checked = localStorage.getItem(screenPreference) === '1';
+  keepScreenOn.checked = wakeLockSupported && localStorage.getItem(screenPreference) === '1';
 } catch (_) {}
-keepScreenOn.disabled = !wakeLockSupported;
+keepScreenOn.disabled = !wakeLockSupported && !videoSupported;
 keepScreenOn.addEventListener('change', function () {
   try {
-    localStorage.setItem(screenPreference, keepScreenOn.checked ? '1' : '0');
+    if (wakeLockSupported) localStorage.setItem(screenPreference, keepScreenOn.checked ? '1' : '0');
   } catch (_) {}
   updateScreenLock();
 });
