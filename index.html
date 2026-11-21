@@ -7,7 +7,7 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
   <title>holdom — дома</title>
 </head>
 <body>
@@ -34,10 +34,6 @@
           <div class="section-head"><h2 id="home-title">Домашние дела</h2><span class="demo">Пример</span></div>
           <p class="chore">Полить цветы</p>
         </section>
-        <div class="assistant-card">
-          <span class="jo" aria-hidden="true">J</span>
-          <div><strong>Джо</strong><small>Голосовой помощник пока не подключён</small></div>
-        </div>
       </div>
       <div class="right-column">
         <section id="calendar-nearest" class="panel nearest-panel hidden" aria-labelledby="nearest-label">
@@ -72,9 +68,15 @@
         </section>
       </div>
     </div>
+    <footer class="dashboard-footer">
+      <div class="assistant-card">
+        <span class="jo" aria-hidden="true">J</span>
+        <div><strong>Джо</strong><small>Голосовой помощник пока не подключён</small></div>
+      </div>
+    </footer>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=9"></script>
-  <script src="calendar.js?v=9"></script>
+  <script src="app.js?v=10"></script>
+  <script src="calendar.js?v=10"></script>
 </body>
 </html>

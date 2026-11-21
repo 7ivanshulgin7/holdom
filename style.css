@@ -11,7 +11,18 @@ button { cursor: pointer; }
 button:focus, input:focus { outline: 2px solid #d1f17b; outline-offset: 2px; }
 .hidden { display: none !important; }
 
-.dashboard { width: 100%; max-width: 1320px; margin: 0 auto; padding: 14px 18px 18px; }
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 14px 18px 18px;
+}
+.dashboard > * { flex-shrink: 0; }
+.dashboard-footer { margin-top: auto; }
+.dashboard-footer .assistant-card { margin-bottom: 0; }
 .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .brand-group { display: flex; flex-wrap: wrap; align-items: baseline; margin-right: 10px; }
 .app-version { margin-left: 10px; color: #bac0b3; font-size: 12px; white-space: nowrap; }
@@ -116,6 +127,7 @@ button:focus, input:focus { outline: 2px solid #d1f17b; outline-offset: 2px; }
   .board { display: flex; align-items: flex-start; }
   .left-column { flex: 0 0 41%; min-width: 0; padding-right: 14px; }
   .right-column { flex: 1; min-width: 0; }
+  .dashboard-footer { width: 41%; padding-right: 14px; }
   .hero { padding: 34px 18px; }
   .clock { font-size: 11vw; }
   .date { font-size: 19px; }
