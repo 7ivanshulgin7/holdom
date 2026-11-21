@@ -14,7 +14,9 @@
   const peopleStatus = $('#people-status');
   const peopleResults = $('#people-results');
   const status = $('#calendar-status');
-  const days = $('#calendar-days');
+  const feed = $('#calendar-feed');
+  const showPastControl = $('#show-past-days');
+  const showPastStorageKey = 'holdom-show-past-days';
   const monthView = $('#calendar-month-view');
   const dashboard = $('.dashboard');
   const gridSpace = $('#calendar-grid-space');
@@ -26,10 +28,18 @@
   const agendaPrev = $('#agenda-prev');
   const agendaNext = $('#agenda-next');
   const nearest = $('#calendar-nearest');
+  const nearestItems = $('#nearest-items');
+  const filterBar = $('#calendar-people-filter');
+  const filterChips = $('#filter-chips');
+  const filterPrev = $('#filter-prev');
+  const filterNext = $('#filter-next');
+  const filterPageSize = 4;
   const joAdd = $('#jo-add');
   const joForm = $('#jo-form');
   const joDialog = $('#jo-dialog');
   const joVoice = $('#jo-voice');
+  const joWake = $('#jo-wake');
+  const joListening = $('#jo-listening');
   const joTitle = $('#jo-title');
   const joDate = $('#jo-date');
   const joTime = $('#jo-time');
@@ -39,9 +49,13 @@
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let selected = new Date();
   let agendaPage = 0;
-  let month = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  let firstMonth = monthIndex(selected);
+  let lastMonth = firstMonth + 2;
+  let showPast = false;
   let lastToday = dayKey(selected);
   let state = null;
+  let hiddenPeople = [];
+  let filterPage = 0;
   let key = '';
   let request = null;
   let peopleRequest = null;
@@ -49,12 +63,26 @@
   let draftId = '';
   let saveRequest = null;
   let recognition = null;
+  let wakeEnabled = false;
+  let wakeRecognition = null;
+  let wakeTimer = 0;
+  let wakeSpeech = null;
+  let awaitingCommandUntil = 0;
+  let voiceConfirm = false;
+  let expandingFeed = false;
 
   try { key = localStorage.getItem(storageKey) || ''; } catch (_) {}
+  try { showPast = localStorage.getItem(showPastStorageKey) === '1'; } catch (_) {}
+  if (showPast) firstMonth -= 2;
+  showPastControl.checked = showPast;
 
   function dayKey(date) {
     return date.getFullYear() + '-' + ('0' + (date.getMonth() + 1)).slice(-2)
       + '-' + ('0' + date.getDate()).slice(-2);
+  }
+
+  function monthIndex(date) {
+    return date.getFullYear() * 12 + date.getMonth();
   }
 
   function fitMonth() {
@@ -64,15 +92,15 @@
       return;
     }
     dashboard.style.height = window.innerHeight + 'px';
-    const room = gridSpace.clientHeight - calendarWeekdays.offsetHeight;
+    const room = gridSpace.clientHeight - calendarWeekdays.offsetHeight - 28;
     const cellSize = Math.max(0, Math.floor(Math.min(gridSpace.clientWidth / 7, room / 6)));
     monthGrid.style.maxWidth = (cellSize * 7) + 'px';
   }
 
-  function entriesFor(day) {
+  function entriesFor(day, people) {
     if (!state) return [];
     return state.entries.filter(function (entry) {
-      return entry.from <= day && (entry.to || entry.from) >= day;
+      return entry.from <= day && (entry.to || entry.from) >= day && visibleEntryPeople(entry, day, people).length;
     });
   }
 
@@ -82,6 +110,76 @@
       const personalDays = entry.days && entry.days[id];
       return people[id] && (!Array.isArray(personalDays) || personalDays.indexOf(day) !== -1);
     }).map(function (id) { return people[id]; });
+  }
+
+  function visibleEntryPeople(entry, day, people) {
+    const participants = entryPeople(entry, day, people);
+    const helper = entry.req && entry.req.st === 'yes' && people[entry.req.to];
+    if (helper && !participants.some(function (person) { return person.id === helper.id; })) participants.push(helper);
+    return participants;
+  }
+
+  function filterStorageKey(account) {
+    return 'holdom-hidden-people:' + account.id;
+  }
+
+  function loadPeopleFilter(account) {
+    filterPage = 0;
+    hiddenPeople = [];
+    try {
+      const saved = JSON.parse(localStorage.getItem(filterStorageKey(account)) || '[]');
+      if (Array.isArray(saved)) hiddenPeople = saved;
+    } catch (_) {}
+  }
+
+  function availablePeople() {
+    if (!state) return [];
+    const friends = state.links && state.links.friends || [];
+    return state.people.filter(function (person) {
+      return person.id === state.me.id || friends.indexOf(person.id) !== -1;
+    }).sort(function (a, b) {
+      if (a.id === b.id) return 0;
+      if (a.id === state.me.id) return -1;
+      if (b.id === state.me.id) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  function renderPeopleFilter(people) {
+    filterBar.classList.toggle('hidden', !people.length);
+    const lastPage = Math.max(0, Math.ceil(people.length / filterPageSize) - 1);
+    filterPage = Math.max(0, Math.min(filterPage, lastPage));
+    filterPrev.classList.toggle('hidden', lastPage === 0);
+    filterNext.classList.toggle('hidden', lastPage === 0);
+    filterPrev.disabled = filterPage === 0;
+    filterNext.disabled = filterPage === lastPage;
+    filterChips.textContent = '';
+    people.slice(filterPage * filterPageSize, (filterPage + 1) * filterPageSize).forEach(function (person) {
+      const button = document.createElement('button');
+      const dot = document.createElement('span');
+      const name = document.createElement('span');
+      button.type = 'button';
+      button.className = 'filter-chip';
+      button.title = person.name;
+      button.setAttribute('aria-pressed', String(hiddenPeople.indexOf(person.id) === -1));
+      dot.className = 'filter-dot';
+      dot.style.backgroundColor = personColor(person);
+      dot.style.borderColor = personColor(person);
+      dot.setAttribute('aria-hidden', 'true');
+      name.className = 'filter-name';
+      name.textContent = person.name;
+      button.appendChild(dot);
+      button.appendChild(name);
+      button.onclick = function () {
+        const index = hiddenPeople.indexOf(person.id);
+        if (index === -1) hiddenPeople.push(person.id);
+        else hiddenPeople.splice(index, 1);
+        try { localStorage.setItem(filterStorageKey(state.me), JSON.stringify(hiddenPeople)); } catch (_) {}
+        agendaPage = 0;
+        render();
+      };
+      filterChips.appendChild(button);
+    });
   }
 
   function personColor(person) {
@@ -114,7 +212,7 @@
 
   function calendarDayBands(day, orderedPeople, people) {
     const occupied = Object.create(null);
-    entriesFor(day).forEach(function (entry) {
+    entriesFor(day, people).forEach(function (entry) {
       entryPeople(entry, day, people).forEach(function (person) {
         if (!occupied[person.id]) occupied[person.id] = entry.id;
       });
@@ -191,71 +289,99 @@
     button.appendChild(layer);
   }
 
+  function nextVisibleDay(entry, earliest, people) {
+    if (visibleEntryPeople(entry, earliest, people).length) return earliest;
+    let first = '';
+    Object.keys(entry.days || {}).forEach(function (id) {
+      if (!people[id] || (entry.who || []).indexOf(id) === -1 || !Array.isArray(entry.days[id])) return;
+      entry.days[id].forEach(function (day) {
+        if (day >= earliest && day <= (entry.to || entry.from) && (!first || day < first)) first = day;
+      });
+    });
+    return first;
+  }
+
   function renderNearest(people) {
     nearest.classList.toggle('hidden', !state);
+    nearestItems.textContent = '';
     if (!state) return;
     const now = new Date();
     const today = dayKey(now);
-    const time = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
-    let next = null;
+    const localTime = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+    const upcoming = [];
     state.entries.forEach(function (entry) {
       const end = entry.to || entry.from;
       if (!entry.from || end < today) return;
-      const day = entry.from < today ? today : entry.from;
-      if (end === today && entry.tf && (entry.tt || entry.tf) < time) return;
-      const order = day + 'T' + (entry.tf || '24:00');
-      if (!next || order < next.order) next = { entry: entry, day: day, order: order };
+      let start = entry.from < today ? today : entry.from;
+      if (start === today && entry.tf && (entry.tt || entry.tf) < localTime) {
+        if (end === today) return;
+        start = dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+      }
+      const day = nextVisibleDay(entry, start, people);
+      if (day) upcoming.push({ entry: entry, day: day, order: day + 'T' + (entry.tf || '24:00') });
     });
-    const title = $('#nearest-title');
-    const meta = $('#nearest-details');
-    title.textContent = next ? next.entry.what : 'Предстоящих дел нет';
-    meta.textContent = '';
-    if (!next) return;
-    const date = next.day.split('-');
-    const peopleLabel = entryPeople(next.entry, next.day, people).map(function (person) { return person.name; });
-    const details = [next.day === today ? 'Сегодня' : (+date[2] + ' ' + months[+date[1] - 1])];
-    if (next.entry.tf) details.push(next.entry.tf + (next.entry.tt ? '–' + next.entry.tt : ''));
-    if (peopleLabel.length) details.push(peopleLabel.join(', '));
-    meta.textContent = details.join(' · ');
+    upcoming.sort(function (a, b) { return a.order.localeCompare(b.order); }).slice(0, 3).forEach(function (item) {
+      const row = document.createElement('li');
+      const title = document.createElement('strong');
+      const meta = document.createElement('small');
+      const date = item.day.split('-');
+      const details = [item.day === today ? 'Сегодня' : (+date[2] + ' ' + months[+date[1] - 1])];
+      if (item.entry.tf) details.push(item.entry.tf + (item.entry.tt ? '–' + item.entry.tt : ''));
+      const names = visibleEntryPeople(item.entry, item.day, people).map(function (person) { return person.name; });
+      if (names.length) details.push(names.join(', '));
+      title.textContent = item.entry.what;
+      title.title = item.entry.what;
+      meta.textContent = details.join(' · ');
+      meta.title = meta.textContent;
+      row.appendChild(title);
+      row.appendChild(meta);
+      nearestItems.appendChild(row);
+    });
+    if (!upcoming.length) {
+      const empty = document.createElement('li');
+      empty.textContent = Object.keys(people).length ? 'Предстоящих дел нет.' : 'Выберите, чьи дела показывать.';
+      nearestItems.appendChild(empty);
+    }
   }
 
-  function render() {
-    const year = month.getFullYear();
-    const index = month.getMonth();
-    const offset = (month.getDay() + 6) % 7;
+  function monthLabel(index) {
+    return monthNames[index % 12] + ' ' + Math.floor(index / 12);
+  }
+
+  function renderMonthBlock(month, today, activeDay, orderedPeople, people, patterns) {
+    const year = Math.floor(month / 12);
+    const index = month % 12;
     const length = new Date(year, index + 1, 0).getDate();
-    const activeDay = dayKey(selected);
-    const today = dayKey(new Date());
-    const people = Object.create(null);
-    const orderedPeople = state ? state.people.slice().sort(function (a, b) {
-      if (a.id === b.id) return 0;
-      if (a.id === state.me.id) return -1;
-      if (b.id === state.me.id) return 1;
-      return a.name.localeCompare(b.name);
-    }) : [];
-    orderedPeople.forEach(function (person) { people[person.id] = person; });
-    const patterns = calendarPatterns(orderedPeople);
+    const current = monthIndex(new Date());
+    const firstDay = !showPast && month === current ? Number(today.slice(-2)) : 1;
+    const offset = (new Date(year, index, firstDay).getDay() + 6) % 7;
     const bandsByDay = [];
-    for (let day = 1; day <= length; day++) {
+    const block = document.createElement('section');
+    const title = document.createElement('h4');
+    const days = document.createElement('div');
+    block.className = 'calendar-month-block';
+    block.setAttribute('data-month', String(month));
+    title.className = 'calendar-month-label';
+    title.textContent = monthLabel(month);
+    days.className = 'calendar-days';
+    block.appendChild(title);
+    block.appendChild(days);
+    for (let day = firstDay; day <= length; day++) {
       bandsByDay[day] = calendarDayBands(dayKey(new Date(year, index, day)), orderedPeople, people);
     }
-    renderNearest(people);
-    $('#calendar-month').textContent = monthNames[index] + ' ' + year;
-    days.textContent = '';
-
-    for (let cell = 0; cell < Math.ceil((offset + length) / 7) * 7; cell++) {
-      const day = cell - offset + 1;
+    const cellCount = Math.ceil((offset + length - firstDay + 1) / 7) * 7;
+    for (let cell = 0; cell < cellCount; cell++) {
+      const day = cell - offset + firstDay;
       const square = document.createElement('div');
       square.className = 'calendar-cell';
       days.appendChild(square);
-      if (day < 1 || day > length) {
+      if (day < firstDay || day > length) {
         square.setAttribute('aria-hidden', 'true');
         continue;
       }
       const date = new Date(year, index, day);
       const iso = dayKey(date);
-      const dayEntries = entriesFor(iso);
-      const count = dayEntries.length;
+      const count = entriesFor(iso, people).length;
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'calendar-day';
@@ -277,7 +403,76 @@
       };
       square.appendChild(button);
     }
+    return block;
+  }
 
+  function firstVisibleMonth() {
+    const months = feed.querySelectorAll('[data-month]');
+    let visible = months[0];
+    for (let index = 0; index < months.length; index++) {
+      if (months[index].offsetTop > feed.scrollTop + 8) break;
+      visible = months[index];
+    }
+    return visible;
+  }
+
+  function updateMonthHeading() {
+    const visible = firstVisibleMonth();
+    const index = visible ? Number(visible.getAttribute('data-month')) : monthIndex(new Date());
+    $('#calendar-month').textContent = monthLabel(index);
+    $('#previous-month').disabled = !showPast && index <= monthIndex(new Date());
+  }
+
+  function extraMonthsButton(label, onClick) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'quiet-button calendar-feed-more';
+    button.textContent = label;
+    button.onclick = onClick;
+    return button;
+  }
+
+  function render(revealMonth) {
+    const anchor = firstVisibleMonth();
+    const anchorMonth = anchor ? Number(anchor.getAttribute('data-month')) : monthIndex(new Date());
+    const scrollOffset = anchor ? feed.scrollTop - anchor.offsetTop : 0;
+    const currentMonth = monthIndex(new Date());
+    if (!showPast) firstMonth = currentMonth;
+    lastMonth = Math.max(lastMonth, currentMonth + 2);
+    const activeDay = dayKey(selected);
+    const today = dayKey(new Date());
+    const everyone = availablePeople();
+    const orderedPeople = everyone.filter(function (person) { return hiddenPeople.indexOf(person.id) === -1; });
+    const people = Object.create(null);
+    orderedPeople.forEach(function (person) { people[person.id] = person; });
+    const patterns = calendarPatterns(everyone);
+    renderPeopleFilter(everyone);
+    renderNearest(people);
+    const contents = document.createDocumentFragment();
+    if (showPast) {
+      contents.appendChild(extraMonthsButton('Раньше', function () {
+        firstMonth -= 2;
+        render();
+      }));
+    }
+    for (let index = firstMonth; index <= lastMonth; index++) {
+      contents.appendChild(renderMonthBlock(index, today, activeDay, orderedPeople, people, patterns));
+    }
+    contents.appendChild(extraMonthsButton('Следующие месяцы', function () {
+      lastMonth += 2;
+      render();
+    }));
+    feed.textContent = '';
+    feed.appendChild(contents);
+    renderAgenda(people, activeDay);
+    fitMonth();
+    const target = typeof revealMonth === 'number' ? revealMonth : anchorMonth;
+    const block = feed.querySelector('[data-month="' + target + '"]');
+    if (block) feed.scrollTop = block.offsetTop + (typeof revealMonth === 'number' ? 0 : scrollOffset);
+    updateMonthHeading();
+  }
+
+  function renderAgenda(people, activeDay) {
     agenda.classList.toggle('hidden', !state);
     if (!state) {
       fitMonth();
@@ -285,7 +480,7 @@
     }
     $('#calendar-day-title').textContent = selected.getDate() + ' ' + months[selected.getMonth()];
     events.textContent = '';
-    const items = entriesFor(activeDay).sort(function (a, b) {
+    const items = entriesFor(activeDay, people).sort(function (a, b) {
       return (a.tf || '').localeCompare(b.tf || '');
     });
     agendaPage = Math.max(0, Math.min(agendaPage, items.length - 1));
@@ -300,7 +495,7 @@
     }
     items.slice(agendaPage, agendaPage + 1).forEach(function (entry) {
       const owner = people[entry.by];
-      const participants = entryPeople(entry, activeDay, people);
+      const participants = visibleEntryPeople(entry, activeDay, people);
       const row = document.createElement('article');
       row.className = 'event';
       const time = document.createElement('div');
@@ -341,6 +536,7 @@
     request = null;
     key = '';
     state = null;
+    setWakeEnabled(false);
     if (saveRequest) {
       const pendingSave = saveRequest;
       saveRequest = null;
@@ -366,6 +562,11 @@
   function setJoOpen(open) {
     joDialog.classList.toggle('hidden', !open);
     joAdd.setAttribute('aria-expanded', String(open));
+    if (open) stopWakeRecognition();
+    else {
+      voiceConfirm = false;
+      scheduleWake();
+    }
     if (!open && recognition) {
       const active = recognition;
       recognition = null;
@@ -389,6 +590,133 @@
     joResult.textContent = '';
     joStatus.textContent = '';
     draftId = '';
+  }
+
+  function stopWakeRecognition() {
+    clearTimeout(wakeTimer);
+    wakeTimer = 0;
+    joAdd.classList.remove('is-listening');
+    if (!wakeRecognition) return;
+    const listener = wakeRecognition;
+    wakeRecognition = null;
+    listener.abort();
+  }
+
+  function stopWakeSpeech() {
+    if (!wakeSpeech) return;
+    clearTimeout(wakeSpeech.timer);
+    wakeSpeech = null;
+    window.speechSynthesis.cancel();
+  }
+
+  function setWakeEnabled(enabled, message) {
+    wakeEnabled = enabled;
+    joWake.setAttribute('aria-pressed', String(enabled));
+    joWake.textContent = enabled ? 'Выключить обращение по имени' : 'Слушать «Джованни»';
+    joListening.textContent = message || '';
+    if (!enabled) {
+      awaitingCommandUntil = 0;
+      voiceConfirm = false;
+      stopWakeRecognition();
+      stopWakeSpeech();
+    }
+  }
+
+  function scheduleWake() {
+    clearTimeout(wakeTimer);
+    wakeTimer = 0;
+    if (wakeEnabled && !document.hidden && !wakeSpeech) wakeTimer = setTimeout(startWake, 1200);
+  }
+
+  function sayWake(text) {
+    stopWakeRecognition();
+    stopWakeSpeech();
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance || document.hidden) {
+      scheduleWake();
+      return;
+    }
+    const reply = new window.SpeechSynthesisUtterance(text);
+    reply.lang = 'ru-RU';
+    const speaking = { timer: 0 };
+    wakeSpeech = speaking;
+    function finish() {
+      if (wakeSpeech !== speaking) return;
+      clearTimeout(speaking.timer);
+      wakeSpeech = null;
+      scheduleWake();
+    }
+    reply.onend = reply.onerror = finish;
+    speaking.timer = setTimeout(function () { stopWakeSpeech(); scheduleWake(); }, 8000);
+    try { window.speechSynthesis.speak(reply); } catch (_) { finish(); }
+  }
+
+  function handleWakePhrase(transcript) {
+    const phrase = transcript.trim().toLowerCase().replace(/ё/g, 'е');
+    if (voiceConfirm) {
+      const answer = phrase.replace(/[,.!?]/g, '').trim();
+      if (/^(да|да запиши|да сохрани|запиши|сохрани)$/.test(answer)) {
+        voiceConfirm = false;
+        stopWakeRecognition();
+        saveJoEvent();
+      } else if (/^(нет|отмена|отмени|не надо)$/.test(answer)) {
+        resetJo();
+        sayWake('Отменила.');
+      }
+      return;
+    }
+    const match = /^(джованни|джовани|джовань|джо)(?=$|[\s,.!?])/.exec(phrase);
+    if (!match && Date.now() > awaitingCommandUntil) return;
+    const command = match ? phrase.slice(match[0].length).replace(/^[\s,.!?]+/, '') : transcript;
+    if (!command) {
+      awaitingCommandUntil = Date.now() + 12000;
+      joListening.textContent = 'Слушаю. Какое дело записать?';
+      sayWake('Слушаю. Какое дело записать?');
+      return;
+    }
+    awaitingCommandUntil = 0;
+    setJoOpen(true);
+    joResult.textContent = '';
+    voiceDraft(command);
+    voiceConfirm = true;
+    joStatus.textContent = 'Проверьте дело, дату и время. Скажите «да» или нажмите «Сохранить».';
+    const date = joDate.value.split('-');
+    const when = joDate.value === dayKey(new Date()) ? 'сегодня' : (+date[2] + ' ' + months[+date[1] - 1]);
+    sayWake('Записать «' + joTitle.value + '» ' + when + (joTime.value ? ' в ' + joTime.value : '') + '?');
+  }
+
+  function startWake() {
+    const formOpen = !joDialog.classList.contains('hidden');
+    if (!wakeEnabled || !SpeechRecognition || document.hidden || !state ||
+        wakeRecognition || wakeSpeech || recognition || (formOpen && !voiceConfirm)) return;
+    const listener = new SpeechRecognition();
+    listener.lang = 'ru-RU';
+    listener.continuous = true;
+    wakeRecognition = listener;
+    listener.onstart = function () {
+      if (wakeRecognition !== listener) return;
+      joAdd.classList.add('is-listening');
+      if (!voiceConfirm && Date.now() > awaitingCommandUntil) joListening.textContent = 'Слушаю имя «Джованни»';
+    };
+    listener.onresult = function (event) {
+      for (let index = event.resultIndex; index < event.results.length && wakeRecognition === listener; index++) {
+        if (event.results[index].isFinal) handleWakePhrase(event.results[index][0].transcript);
+      }
+    };
+    listener.onerror = function (event) {
+      if (wakeRecognition !== listener || event.error === 'no-speech') return;
+      setWakeEnabled(false, 'Режим обращения по имени остановлен браузером.');
+    };
+    listener.onend = function () {
+      if (wakeRecognition !== listener) return;
+      wakeRecognition = null;
+      joAdd.classList.remove('is-listening');
+      scheduleWake();
+    };
+    try {
+      listener.start();
+    } catch (_) {
+      setWakeEnabled(false, 'Браузер не смог включить микрофон.');
+    }
   }
 
   function voiceDraft(transcript) {
@@ -427,6 +755,9 @@
 
   function startVoice() {
     if (!SpeechRecognition || recognition) return;
+    voiceConfirm = false;
+    stopWakeRecognition();
+    stopWakeSpeech();
     const listener = new SpeechRecognition();
     listener.lang = 'ru-RU';
     recognition = listener;
@@ -455,7 +786,7 @@
   }
 
   function saveJoEvent(event) {
-    event.preventDefault();
+    if (event) event.preventDefault();
     if (!key || !state || saveRequest) return;
     const what = joTitle.value.trim();
     const date = joDate.value;
@@ -463,6 +794,9 @@
       joStatus.textContent = 'Укажите название и дату.';
       return;
     }
+    voiceConfirm = false;
+    stopWakeRecognition();
+    stopWakeSpeech();
     if (!draftId) draftId = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
     const xhr = new XMLHttpRequest();
     saveRequest = xhr;
@@ -488,10 +822,13 @@
       const parts = date.split('-');
       selected = new Date(+parts[0], +parts[1] - 1, +parts[2]);
       agendaPage = 0;
-      month = new Date(selected.getFullYear(), selected.getMonth(), 1);
+      const targetMonth = monthIndex(selected);
+      if (showPast) firstMonth = Math.min(firstMonth, targetMonth);
+      lastMonth = Math.max(lastMonth, targetMonth + 1);
       resetJo();
       joResult.textContent = 'Добавлено: ' + data.entry.what;
-      render();
+      if (!event && wakeEnabled) sayWake('Дело добавлено.');
+      render(!showPast && date < dayKey(new Date()) ? undefined : targetMonth);
       syncAfterMutation();
     };
     xhr.send(JSON.stringify({ entry: { what: what, from: date, to: date, tf: joTime.value, vis: 'all' } }));
@@ -537,6 +874,7 @@
       }
       const newConnection = !key;
       key = candidate;
+      if (!state || state.me.id !== data.me.id) loadPeopleFilter(data.me);
       state = data;
       keyField.value = '';
       try { localStorage.setItem(storageKey, key); } catch (_) {}
@@ -642,7 +980,6 @@
       if (dayKey(selected) === lastToday) {
         selected = now;
         agendaPage = 0;
-        month = new Date(now.getFullYear(), now.getMonth(), 1);
       }
       lastToday = today;
       render();
@@ -651,17 +988,46 @@
   }
 
   function shiftMonth(delta) {
-    month = new Date(month.getFullYear(), month.getMonth() + delta, 1);
-    const now = new Date();
-    selected = now.getFullYear() === month.getFullYear() && now.getMonth() === month.getMonth() ? now : month;
-    agendaPage = 0;
-    render();
+    const visible = firstVisibleMonth();
+    const current = monthIndex(new Date());
+    const target = (visible ? Number(visible.getAttribute('data-month')) : current) + delta;
+    if (target < current && !showPast) return;
+    if (target < firstMonth) firstMonth -= 2;
+    if (target >= lastMonth) lastMonth += 2;
+    const block = feed.querySelector('[data-month="' + target + '"]');
+    if (block && target !== lastMonth) {
+      feed.scrollTop = block.offsetTop;
+      updateMonthHeading();
+    } else render(target);
   }
 
   $('#previous-month').onclick = function () { shiftMonth(-1); };
   $('#next-month').onclick = function () { shiftMonth(1); };
   agendaPrev.onclick = function () { agendaPage--; render(); };
   agendaNext.onclick = function () { agendaPage++; render(); };
+  filterPrev.onclick = function () { filterPage--; renderPeopleFilter(availablePeople()); };
+  filterNext.onclick = function () { filterPage++; renderPeopleFilter(availablePeople()); };
+  feed.addEventListener('scroll', function () {
+    updateMonthHeading();
+    if (expandingFeed || feed.scrollTop < 1 || feed.scrollHeight - feed.clientHeight - feed.scrollTop > 24) return;
+    const top = feed.scrollTop;
+    expandingFeed = true;
+    requestAnimationFrame(function () {
+      expandingFeed = false;
+      if (Math.abs(feed.scrollTop - top) > 24) return;
+      lastMonth += 2;
+      render();
+    });
+  }, { passive: true });
+  showPastControl.addEventListener('change', function () {
+    showPast = showPastControl.checked;
+    try { localStorage.setItem(showPastStorageKey, showPast ? '1' : '0'); } catch (_) {}
+    const now = new Date();
+    const current = monthIndex(now);
+    firstMonth = current - (showPast ? 2 : 0);
+    if (!showPast && dayKey(selected) < dayKey(now)) { selected = now; agendaPage = 0; }
+    render(current);
+  });
 
   let swipeStart = null;
   let lastSwipe = 0;
@@ -718,6 +1084,7 @@
     });
   });
   joVoice.disabled = !SpeechRecognition;
+  joWake.disabled = !SpeechRecognition;
   settingsButton.addEventListener('click', function () { setSettingsOpen(true); });
   $('#calendar-settings-close').addEventListener('click', function () { setSettingsOpen(false); });
   joAdd.addEventListener('click', function () {
@@ -734,13 +1101,30 @@
     }
   });
   $('#jo-close').addEventListener('click', function () { setJoOpen(false); joAdd.focus(); });
+  joWake.addEventListener('click', function () {
+    if (wakeEnabled) setWakeEnabled(false);
+    else if (SpeechRecognition && state) {
+      setWakeEnabled(true, 'Включаю микрофон…');
+      setJoOpen(false);
+      clearTimeout(wakeTimer);
+      startWake();
+    }
+  });
   joVoice.addEventListener('click', startVoice);
   joForm.addEventListener('submit', saveJoEvent);
-  render();
+  render(monthIndex(new Date()));
   showConnection('');
   refresh();
   setInterval(refresh, 60000);
   document.addEventListener('visibilitychange', refresh);
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      awaitingCommandUntil = 0;
+      voiceConfirm = false;
+      stopWakeRecognition();
+      stopWakeSpeech();
+    } else scheduleWake();
+  });
   window.addEventListener('resize', fitMonth);
   window.addEventListener('holdomlayout', fitMonth);
 }());

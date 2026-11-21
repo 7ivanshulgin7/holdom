@@ -7,7 +7,7 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=15">
+  <link rel="stylesheet" href="style.css?v=16">
   <title>holdom — дома</title>
 </head>
 <body>
@@ -30,24 +30,23 @@
           <div id="clock" class="clock">--:--</div>
           <div id="date" class="date"></div>
         </section>
-        <section class="panel home-panel" aria-labelledby="home-title">
-          <div class="section-head"><h2 id="home-title">Домашние дела</h2><span class="demo">Пример</span></div>
-          <p class="chore">Полить цветы</p>
+        <section id="calendar-nearest" class="panel nearest-panel hidden" aria-labelledby="nearest-label">
+          <h2 id="nearest-label">Ближайшие дела</h2>
+          <ul id="nearest-items" class="nearest-items"></ul>
         </section>
         <footer class="dashboard-footer">
           <button type="button" id="jo-add" class="jo-face" aria-label="Джованни. Добавить дело" title="Джованни"
             aria-expanded="false" aria-controls="jo-dialog">
-            <span class="jo-eyes" aria-hidden="true"><i></i><i></i></span>
+            <span class="jo-head" aria-hidden="true">
+              <span class="jo-eyes"><i></i><i></i></span>
+              <span class="jo-smile"></span>
+            </span>
           </button>
+          <p id="jo-listening" class="hint" role="status"></p>
           <p id="jo-result" class="hint" role="status"></p>
         </footer>
       </div>
       <div class="right-column">
-        <section id="calendar-nearest" class="panel nearest-panel hidden" aria-labelledby="nearest-label">
-          <h2 id="nearest-label">Ближайшее дело</h2>
-          <strong id="nearest-title"></strong>
-          <p id="nearest-details"></p>
-        </section>
         <section class="panel calendar-panel" aria-labelledby="calendar-title">
           <div class="section-head">
             <h2 id="calendar-title">Кто когда</h2>
@@ -57,6 +56,7 @@
           <section id="calendar-settings" class="board-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="calendar-settings-heading">
             <div class="panel dialog-panel">
               <div class="section-head"><h2 id="calendar-settings-heading">Настройки календаря</h2><button type="button" id="calendar-settings-close" class="quiet-button">Закрыть</button></div>
+              <label class="calendar-preference"><input id="show-past-days" type="checkbox"> Показывать прошедшие дни</label>
               <form id="calendar-connect" class="calendar-connect">
                 <label for="calendar-key">Ключ входа в «Кто когда»</label>
                 <div class="connect-row">
@@ -80,6 +80,11 @@
               </section>
             </div>
           </section>
+          <div id="calendar-people-filter" class="calendar-people-filter hidden" role="group" aria-label="Чьи дела показывать">
+            <button type="button" id="filter-prev" class="filter-arrow hidden" aria-label="Предыдущие люди">‹</button>
+            <div id="filter-chips" class="filter-chips"></div>
+            <button type="button" id="filter-next" class="filter-arrow hidden" aria-label="Следующие люди">›</button>
+          </div>
           <div id="calendar-month-view" class="calendar-month-view">
             <div class="calendar-nav">
               <button type="button" class="quiet-button" id="previous-month" aria-label="Предыдущий месяц">‹</button>
@@ -89,7 +94,7 @@
             <div id="calendar-grid-space" class="calendar-grid-space">
               <div id="calendar-grid" class="calendar-grid">
                 <div id="calendar-weekdays" class="calendar-weekdays" aria-hidden="true"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
-                <div id="calendar-days" class="calendar-days"></div>
+                <div id="calendar-feed" class="calendar-feed" tabindex="0" aria-label="Лента месяцев"></div>
               </div>
             </div>
           </div>
@@ -111,6 +116,7 @@
       <form id="jo-form" class="panel dialog-panel jo-form">
         <div class="section-head"><h2 id="jo-heading">Добавить дело</h2><button type="button" id="jo-close" class="quiet-button">Закрыть</button></div>
         <button type="button" id="jo-voice" class="quiet-button">Диктовать</button>
+        <button type="button" id="jo-wake" class="quiet-button" aria-pressed="false">Слушать «Джованни»</button>
         <label for="jo-title">Дело</label>
         <input id="jo-title" maxlength="60" placeholder="Например, забрать посылку" autocomplete="off" required>
         <div class="jo-fields">
@@ -124,7 +130,7 @@
     </div>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=15"></script>
-  <script src="calendar.js?v=15"></script>
+  <script src="app.js?v=16"></script>
+  <script src="calendar.js?v=16"></script>
 </body>
 </html>
