@@ -7,7 +7,7 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="style.css?v=11">
   <title>holdom — дома</title>
 </head>
 <body>
@@ -44,7 +44,10 @@
         <section class="panel calendar-panel" aria-labelledby="calendar-title">
           <div class="section-head">
             <h2 id="calendar-title">Кто когда</h2>
-            <button type="button" class="quiet-button hidden" id="calendar-disconnect">Отключить</button>
+            <div class="calendar-actions">
+              <a id="open-kto-kogda" class="quiet-button" href="https://7ivanshulgin7.github.io/kto-kogda/">Открыть «Кто когда»</a>
+              <button type="button" class="quiet-button hidden" id="calendar-disconnect">Отключить</button>
+            </div>
           </div>
           <form id="calendar-connect" class="calendar-connect">
             <label for="calendar-key">Ключ входа аккаунта планшета</label>
@@ -54,6 +57,7 @@
             </div>
           </form>
           <p id="calendar-status" class="hint" role="status"></p>
+          <p id="calendar-link-status" class="hint" role="status"></p>
           <div class="calendar-nav">
             <button type="button" class="quiet-button" id="previous-month" aria-label="Предыдущий месяц">‹</button>
             <h3 id="calendar-month"></h3>
@@ -76,7 +80,7 @@
     </footer>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=10"></script>
-  <script src="calendar.js?v=10"></script>
+  <script src="app.js?v=11"></script>
+  <script src="calendar.js?v=11"></script>
 </body>
 </html>

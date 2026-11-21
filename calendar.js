@@ -6,6 +6,8 @@
   const form = $('#calendar-connect');
   const keyField = $('#calendar-key');
   const disconnect = $('#calendar-disconnect');
+  const calendarLink = $('#open-kto-kogda');
+  const linkStatus = $('#calendar-link-status');
   const status = $('#calendar-status');
   const days = $('#calendar-days');
   const agenda = $('#calendar-agenda');
@@ -176,6 +178,7 @@
     key = '';
     state = null;
     keyField.value = '';
+    linkStatus.textContent = '';
     try { localStorage.removeItem(storageKey); } catch (_) {}
     render();
   }
@@ -240,6 +243,37 @@
     selected = now.getFullYear() === month.getFullYear() && now.getMonth() === month.getMonth() ? now : month;
     render();
   }
+
+  calendarLink.addEventListener('click', function (event) {
+    if (!key) return;
+    event.preventDefault();
+    linkStatus.textContent = '';
+    try {
+      // GitHub Pages размещает обе PWA под одним origin, но у каждой свой ключ входа.
+      if (new URL(calendarLink.href).origin !== window.location.origin) {
+        window.location.assign(calendarLink.href);
+        return;
+      }
+      const existing = JSON.parse(localStorage.getItem('kk-auth2') || 'null');
+      if (existing && existing.token && existing.token !== key) {
+        linkStatus.textContent = 'В «Кто когда» уже открыт другой сеанс. Сначала выйдите из него в самом календаре.';
+        return;
+      }
+      if (!existing || !existing.token) {
+        const pending = JSON.parse(localStorage.getItem('kk-pending2') || 'null');
+        const cached = JSON.parse(localStorage.getItem('kk-state2') || 'null');
+        if ((pending && (!Array.isArray(pending) || pending.length)) ||
+            (cached && (!state || !cached.me || cached.me.id !== state.me.id))) {
+          linkStatus.textContent = 'В «Кто когда» есть данные прежнего сеанса. Сначала завершите его в самом календаре.';
+          return;
+        }
+        localStorage.setItem('kk-auth2', JSON.stringify({ token: key, me: state ? state.me.id : '' }));
+      }
+      window.location.assign(calendarLink.href);
+    } catch (_) {
+      linkStatus.textContent = 'Не удалось передать вход. Откройте «Кто когда» отдельно.';
+    }
+  });
 
   $('#previous-month').onclick = function () { shiftMonth(-1); };
   $('#next-month').onclick = function () { shiftMonth(1); };
