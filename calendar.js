@@ -414,7 +414,7 @@
         continue;
       }
       const iso = dayKey(date);
-      const count = entriesFor(iso, people).length;
+      const items = entriesFor(iso, people);
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'calendar-day';
@@ -422,7 +422,7 @@
       if (iso === today) button.classList.add('calendar-today');
       if (iso < today) button.classList.add('calendar-past');
       if (cell % 7 === 6) button.classList.add('calendar-sunday');
-      button.setAttribute('aria-label', iso + (count ? ', событий: ' + count : ''));
+      button.setAttribute('aria-label', iso + (items.length ? ', событий: ' + items.length : ''));
       button.setAttribute('aria-pressed', String(iso === activeDay));
       button.setAttribute('aria-haspopup', 'dialog');
       const following = cell % 7 < 6 && day < length ? bandsByDay[day + 1] : [];
@@ -431,6 +431,18 @@
       number.className = 'calendar-number';
       number.textContent = day;
       button.appendChild(number);
+      if (items.length) {
+        button.classList.add('calendar-day-with-titles');
+        const titles = document.createElement('span');
+        titles.className = 'calendar-titles';
+        titles.setAttribute('aria-hidden', 'true');
+        items.slice(0, 2).forEach(function (entry) {
+          const label = document.createElement('span');
+          label.textContent = entry.what;
+          titles.appendChild(label);
+        });
+        button.appendChild(titles);
+      }
       button.onclick = function () {
         calendarNavigated = true;
         selected = date;
