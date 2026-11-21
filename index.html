@@ -7,7 +7,7 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=16">
+  <link rel="stylesheet" href="style.css?v=17">
   <title>holdom — дома</title>
 </head>
 <body>
@@ -57,6 +57,17 @@
             <div class="panel dialog-panel">
               <div class="section-head"><h2 id="calendar-settings-heading">Настройки календаря</h2><button type="button" id="calendar-settings-close" class="quiet-button">Закрыть</button></div>
               <label class="calendar-preference"><input id="show-past-days" type="checkbox"> Показывать прошедшие дни</label>
+              <details class="voice-settings">
+                <summary>Облачный Джованни</summary>
+                <form id="voice-server-form">
+                  <label for="voice-server-address">Адрес голосового сервера</label>
+                  <input id="voice-server-address" type="text" placeholder="https://functions.yandexcloud.net/…" autocomplete="off">
+                  <label for="voice-server-code">Код подключения планшета</label>
+                  <input id="voice-server-code" type="password" autocomplete="off">
+                  <button type="submit" class="quiet-button">Сохранить подключение</button>
+                </form>
+                <p id="voice-server-status" class="hint" role="status"></p>
+              </details>
               <form id="calendar-connect" class="calendar-connect">
                 <label for="calendar-key">Ключ входа в «Кто когда»</label>
                 <div class="connect-row">
@@ -117,6 +128,7 @@
         <div class="section-head"><h2 id="jo-heading">Добавить дело</h2><button type="button" id="jo-close" class="quiet-button">Закрыть</button></div>
         <button type="button" id="jo-voice" class="quiet-button">Диктовать</button>
         <button type="button" id="jo-wake" class="quiet-button" aria-pressed="false">Слушать «Джованни»</button>
+        <button type="button" id="jo-cloud" class="quiet-button hidden" aria-pressed="false">Поговорить с Джованни</button>
         <label for="jo-title">Дело</label>
         <input id="jo-title" maxlength="60" placeholder="Например, забрать посылку" autocomplete="off" required>
         <div class="jo-fields">
@@ -130,7 +142,8 @@
     </div>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=16"></script>
-  <script src="calendar.js?v=16"></script>
+  <script src="app.js?v=17"></script>
+  <script src="voice-turn.js?v=17"></script>
+  <script src="calendar.js?v=17"></script>
 </body>
 </html>

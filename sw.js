@@ -1,6 +1,6 @@
-const CACHE = 'holdom-shell-v16';
+const CACHE = 'holdom-shell-v17';
 const FILES = [
-  './', './index.html', './style.css?v=16', './app.js?v=16', './calendar.js?v=16',
+  './', './index.html', './style.css?v=17', './app.js?v=17', './calendar.js?v=17', './voice-turn.js?v=17',
   './manifest.webmanifest', './icon-192.png', './icon-512.png'
 ];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting())));

@@ -39,6 +39,12 @@
   const joDialog = $('#jo-dialog');
   const joVoice = $('#jo-voice');
   const joWake = $('#jo-wake');
+  const joCloud = $('#jo-cloud');
+  const voiceServerForm = $('#voice-server-form');
+  const voiceServerAddress = $('#voice-server-address');
+  const voiceServerCode = $('#voice-server-code');
+  const voiceServerStatus = $('#voice-server-status');
+  const voiceSettingsKey = 'holdom-voice-function';
   const joListening = $('#jo-listening');
   const joTitle = $('#jo-title');
   const joDate = $('#jo-date');
@@ -69,9 +75,16 @@
   let wakeSpeech = null;
   let awaitingCommandUntil = 0;
   let voiceConfirm = false;
+  let voiceSettings = null;
+  let recordingCloudVoice = false;
+  let cloudVoice = null;
   let expandingFeed = false;
 
   try { key = localStorage.getItem(storageKey) || ''; } catch (_) {}
+  try {
+    const savedVoice = JSON.parse(localStorage.getItem(voiceSettingsKey) || 'null');
+    if (savedVoice) voiceSettings = readVoiceSettings(savedVoice.address, savedVoice.code);
+  } catch (_) {}
   try { showPast = localStorage.getItem(showPastStorageKey) === '1'; } catch (_) {}
   if (showPast) firstMonth -= 2;
   showPastControl.checked = showPast;
@@ -564,6 +577,7 @@
     joAdd.setAttribute('aria-expanded', String(open));
     if (open) stopWakeRecognition();
     else {
+      stopCloudVoice('');
       voiceConfirm = false;
       scheduleWake();
     }
@@ -576,10 +590,89 @@
     }
   }
 
+  function readVoiceSettings(address, code) {
+    if (typeof address !== 'string' || typeof code !== 'string' || !/^[a-f0-9]{64}$/i.test(code)) return null;
+    try {
+      const url = new URL(address);
+      if (url.protocol === 'https:' && url.host === 'functions.yandexcloud.net' &&
+          /^\/[a-z0-9]{20}$/.test(url.pathname) &&
+          !url.username && !url.password && !url.search && !url.hash) return { address: url.href, code: code };
+    } catch (_) {}
+    return null;
+  }
+
+  function showVoiceSettings() {
+    joCloud.classList.toggle('hidden', !voiceSettings);
+    joCloud.disabled = !window.HoldomVoiceTurn || !window.HoldomVoiceTurn.supported();
+    voiceServerAddress.value = voiceSettings ? voiceSettings.address : '';
+    voiceServerCode.value = '';
+    voiceServerCode.placeholder = voiceSettings ? 'Код уже сохранён' : '';
+  }
+
+  function stopCloudVoice(message) {
+    if (cloudVoice) cloudVoice.stop(message);
+  }
+
+  function voiceEvent(event) {
+    if (event.type === 'closed') {
+      cloudVoice = null;
+      recordingCloudVoice = false;
+      showVoiceSettings();
+      joCloud.textContent = 'Поговорить с Джованни';
+      joCloud.setAttribute('aria-pressed', 'false');
+      joVoice.disabled = !SpeechRecognition;
+      joWake.disabled = !SpeechRecognition;
+      joStatus.textContent = event.text || '';
+    } else if (event.type === 'recording') {
+      recordingCloudVoice = true;
+      joCloud.disabled = false;
+      joCloud.textContent = 'Отправить фразу';
+      joStatus.textContent = 'Джованни слушает. Скажите фразу и нажмите «Отправить фразу».';
+    } else if (event.type === 'waiting') {
+      recordingCloudVoice = false;
+      joCloud.disabled = true;
+      joCloud.textContent = 'Жду ответа…';
+      joStatus.textContent = 'Джованни готовит ответ…';
+    } else if (event.type === 'answer' && typeof event.text === 'string') {
+      joStatus.textContent = event.text.slice(0, 280);
+    } else if (event.type === 'draft' && typeof event.title === 'string' &&
+        typeof event.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(event.day) &&
+        typeof event.time === 'string' && /^(?:(?:[01]\d|2[0-3]):[0-5]\d)?$/.test(event.time)) {
+      joTitle.value = event.title.slice(0, 60);
+      joDate.value = event.day;
+      joTime.value = event.time;
+      joStatus.textContent = 'Проверьте черновик и нажмите «Сохранить».';
+    }
+  }
+
+  function startCloudVoice() {
+    if (!voiceSettings || !state || joCloud.disabled) return;
+    setWakeEnabled(false);
+    if (recognition) {
+      const active = recognition;
+      recognition = null;
+      active.abort();
+    }
+    try {
+      cloudVoice = window.HoldomVoiceTurn.start(voiceSettings.address, voiceSettings.code, voiceEvent);
+      joCloud.textContent = 'Подключаю микрофон…';
+      joCloud.disabled = true;
+      joCloud.setAttribute('aria-pressed', 'true');
+      joVoice.disabled = true;
+      joWake.disabled = true;
+      joStatus.textContent = 'Подключаю микрофон…';
+    } catch (_) {
+      joStatus.textContent = 'Не удалось включить микрофон.';
+    }
+  }
+
   function setSettingsOpen(open) {
     settings.classList.toggle('hidden', !open);
     settingsButton.setAttribute('aria-expanded', String(open));
-    if (open && state) renderPeopleResults();
+    if (open) {
+      showVoiceSettings();
+      if (state) renderPeopleResults();
+    }
     (open ? $('#calendar-settings-close') : settingsButton).focus();
   }
 
@@ -794,6 +887,7 @@
       joStatus.textContent = 'Укажите название и дату.';
       return;
     }
+    stopCloudVoice('');
     voiceConfirm = false;
     stopWakeRecognition();
     stopWakeSpeech();
@@ -1085,6 +1179,33 @@
   });
   joVoice.disabled = !SpeechRecognition;
   joWake.disabled = !SpeechRecognition;
+  showVoiceSettings();
+  voiceServerForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    const address = voiceServerAddress.value.trim();
+    const enteredCode = voiceServerCode.value.trim();
+    if (!address && !enteredCode) {
+      voiceSettings = null;
+      try { localStorage.removeItem(voiceSettingsKey); } catch (_) {}
+      showVoiceSettings();
+      voiceServerStatus.textContent = 'Облачное подключение удалено.';
+      return;
+    }
+    const code = enteredCode || (voiceSettings && voiceSettings.address === address ? voiceSettings.code : '');
+    const candidate = readVoiceSettings(address, code);
+    if (!candidate) {
+      voiceServerStatus.textContent = 'Введите ссылку Cloud Functions и код подключения.';
+      return;
+    }
+    voiceSettings = candidate;
+    try { localStorage.setItem(voiceSettingsKey, JSON.stringify(candidate)); } catch (_) {}
+    showVoiceSettings();
+    voiceServerStatus.textContent = 'Подключение сохранено. Откройте Джованни, чтобы поговорить.';
+  });
+  joCloud.addEventListener('click', function () {
+    if (recordingCloudVoice) cloudVoice.send();
+    else if (!cloudVoice) startCloudVoice();
+  });
   settingsButton.addEventListener('click', function () { setSettingsOpen(true); });
   $('#calendar-settings-close').addEventListener('click', function () { setSettingsOpen(false); });
   joAdd.addEventListener('click', function () {
@@ -1119,6 +1240,7 @@
   document.addEventListener('visibilitychange', refresh);
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
+      stopCloudVoice('Разговор остановлен.');
       awaitingCommandUntil = 0;
       voiceConfirm = false;
       stopWakeRecognition();

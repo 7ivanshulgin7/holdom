@@ -39,3 +39,5 @@
 При выпуске меняйте номер и дату в `APP_VER` в `app.js`, номер кэша в `sw.js` и параметры `?v=` у CSS и JS в `index.html` и `sw.js`. Номер и дата показаны рядом с названием holdom.
 
 Это ванильные HTML/CSS/JS без сборщика. Service Worker работает только с localhost или HTTPS.
+
+Голос Джованни для v17 запускается по запросу в Yandex Cloud Functions. Инструкция по развёртыванию находится в [cloud-voice/README.md](cloud-voice/README.md).
