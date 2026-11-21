@@ -6,9 +6,6 @@ const origin = 'https://7ivanshulgin7.github.io';
 const rate = 44100;
 const maxInput = rate * 2 * 8;
 const maxOutput = rate * 2 * 8;
-const speechGapMs = 850;
-const chunkBytes = rate * 2 / 10;
-const endSilence = Buffer.alloc(chunkBytes).toString('base64');
 const maxResponseTokens = 512;
 const maxTranscriptLength = 280;
 
@@ -163,7 +160,7 @@ function askGiovanni(audio, folder, token, history, actions) {
           output_modalities: ['audio'],
           max_output_tokens: maxResponseTokens,
           audio: {
-            input: { format, turn_detection: { type: 'server_vad', threshold: 0.5, silence_duration_ms: speechGapMs } },
+            input: { format, turn_detection: null },
             output: { format, voice: 'anton', role: 'good' },
           },
           tools: [{
@@ -192,25 +189,15 @@ function askGiovanni(audio, folder, token, history, actions) {
         case 'session.updated':
           if (sent) break;
           sent = true;
-          phase = 'speech_start';
+          phase = 'audio_item';
           for (const item of history) {
             send({ type: 'conversation.item.create', item: { type: 'message', role: item.role,
               content: [{ type: item.role === 'user' ? 'input_text' : 'output_text', text: item.text.slice(0, 280) }] } });
           }
-          for (let offset = 0; offset < audio.length; offset += chunkBytes) {
-            send({ type: 'input_audio_buffer.append', audio: audio.subarray(offset, offset + chunkBytes).toString('base64') });
-          }
-          // Длинная фраза может достичь лимита планшета до паузы.
-          for (let ms = 0; ms < speechGapMs; ms += 100) {
-            send({ type: 'input_audio_buffer.append', audio: endSilence });
-          }
-          break;
-        case 'input_audio_buffer.speech_started':
-          if (phase === 'speech_start') phase = 'speech_end';
-          break;
-        case 'input_audio_buffer.speech_stopped':
-        case 'input_audio_buffer.committed':
-          if (phase === 'speech_start' || phase === 'speech_end') phase = 'response';
+          send({ type: 'conversation.item.create', item: { type: 'message', role: 'user',
+            content: [{ type: 'input_audio', audio: audio.toString('base64') }] } });
+          // Планшет уже закончил запись. Запускаем ответ сразу после добавления реплики.
+          send({ type: 'response.create' });
           break;
         case 'response.created':
           phase = 'response';
