@@ -1,6 +1,6 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '14 от 21.11.2026';
+const APP_VER = '15 от 21.11.2026';
 $('#app-version').textContent = 'v' + APP_VER;
 const clock = $('#clock');
 const dateEl = $('#date');
@@ -32,6 +32,7 @@ function fullscreenActive() {
 function fullscreenMessage(message) {
   fullscreenStatus.textContent = message;
   fullscreenStatus.classList.toggle('hidden', !message);
+  window.dispatchEvent(new Event('holdomlayout'));
 }
 
 function syncFullscreenButton() {
@@ -79,6 +80,7 @@ let screenEnabled = false;
 function setScreenStatus(message) {
   screenStatus.textContent = message;
   screenStatus.classList.toggle('hidden', !message);
+  window.dispatchEvent(new Event('holdomlayout'));
 }
 
 function updateVideoLock() {
