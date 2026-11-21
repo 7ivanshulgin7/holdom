@@ -453,10 +453,10 @@
   function goToToday() {
     calendarNavigated = false;
     selected = new Date();
-    render(monthIndex(selected));
+    render(monthIndex(selected), true);
   }
 
-  function render(revealMonth) {
+  function render(revealMonth, revealToday) {
     const anchor = firstVisibleMonth();
     const anchorMonth = anchor ? Number(anchor.getAttribute('data-month')) : monthIndex(new Date());
     const scrollOffset = anchor ? feed.scrollTop - anchor.offsetTop : 0;
@@ -482,7 +482,10 @@
     fitMonth();
     const target = typeof revealMonth === 'number' ? revealMonth : anchorMonth;
     const block = feed.querySelector('[data-month="' + target + '"]');
-    if (block) feed.scrollTop = block.offsetTop + (typeof revealMonth === 'number' ? 0 : scrollOffset);
+    if (revealToday) {
+      const cell = feed.querySelector('.calendar-today').parentNode;
+      feed.scrollTop += cell.getBoundingClientRect().top - feed.getBoundingClientRect().top - feed.clientTop;
+    } else if (block) feed.scrollTop = block.offsetTop + (typeof revealMonth === 'number' ? 0 : scrollOffset);
   }
 
   function renderAgenda(people, activeDay) {
@@ -1080,7 +1083,7 @@
       keyField.value = '';
       try { localStorage.setItem(storageKey, key); } catch (_) {}
       showConnection('Подключён аккаунт: ' + state.me.name, true);
-      render(calendarNavigated ? undefined : monthIndex(new Date()));
+      render(calendarNavigated ? undefined : monthIndex(new Date()), !calendarNavigated);
       if (!settings.classList.contains('hidden')) {
         if (newConnection) setSettingsOpen(false);
         else renderPeopleResults();
@@ -1228,7 +1231,7 @@
     const current = monthIndex(now);
     firstMonth = current - (showPast ? 2 : 0);
     if (!showPast && monthIndex(selected) < current) selected = now;
-    render(current);
+    render(current, true);
   });
 
   disconnect.onclick = function () {
