@@ -456,16 +456,22 @@
       const starting = items.filter(function (entry) {
         return !previous.some(function (other) { return other.id === entry.id; });
       });
-      if (starting.length) {
+      if (bandsByDay[day].length) {
         button.classList.add('calendar-day-with-titles');
         const titles = document.createElement('span');
         titles.className = 'calendar-titles';
+        const names = bandsByDay[day].map(function (band) { return band.person.name; }).join(', ');
+        const peopleLabel = document.createElement('span');
+        peopleLabel.textContent = names;
+        titles.appendChild(peopleLabel);
+        if (starting.length) {
+          const eventLabel = document.createElement('span');
+          eventLabel.className = 'calendar-title-events';
+          eventLabel.textContent = starting.map(function (entry) { return entry.what; }).join(', ');
+          titles.appendChild(eventLabel);
+        }
         titles.setAttribute('aria-hidden', 'true');
-        starting.slice(0, 2).forEach(function (entry) {
-          const label = document.createElement('span');
-          label.textContent = entry.what;
-          titles.appendChild(label);
-        });
+        button.setAttribute('aria-label', button.getAttribute('aria-label') + '. ' + names);
         button.appendChild(titles);
       }
       button.onclick = function () {
