@@ -24,16 +24,11 @@
   const calendarWeekdays = $('#calendar-weekdays');
   const agenda = $('#calendar-agenda');
   const events = $('#calendar-events');
-  const agendaPages = $('#agenda-pages');
-  const agendaPrev = $('#agenda-prev');
-  const agendaNext = $('#agenda-next');
+  const agendaClose = $('#calendar-day-close');
   const nearest = $('#calendar-nearest');
   const nearestItems = $('#nearest-items');
   const filterBar = $('#calendar-people-filter');
   const filterChips = $('#filter-chips');
-  const filterPrev = $('#filter-prev');
-  const filterNext = $('#filter-next');
-  const filterPageSize = 4;
   const joAdd = $('#jo-add');
   const joForm = $('#jo-form');
   const joDialog = $('#jo-dialog');
@@ -68,14 +63,12 @@
   const joResult = $('#jo-result');
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   let selected = new Date();
-  let agendaPage = 0;
   let firstMonth = monthIndex(selected);
   let lastMonth = firstMonth + 2;
   let showPast = false;
   let lastToday = dayKey(selected);
   let state = null;
   let hiddenPeople = [];
-  let filterPage = 0;
   let key = '';
   let request = null;
   let peopleRequest = null;
@@ -98,9 +91,6 @@
   let reviewingCloudDraft = false;
   let expandingFeed = false;
   let calendarNavigated = false;
-  let calendarTouching = false;
-  let snapTimer = 0;
-  const nativeMonthSnap = window.CSS && window.CSS.supports('scroll-snap-align', 'start');
 
   try { key = localStorage.getItem(storageKey) || ''; } catch (_) {}
   try {
@@ -122,7 +112,7 @@
 
   function fitMonth() {
     const anchor = firstVisibleMonth();
-    const fraction = anchor && feed.clientWidth ? (feed.scrollLeft - anchor.offsetLeft) / feed.clientWidth : 0;
+    const fraction = anchor && anchor.offsetHeight ? (feed.scrollTop - anchor.offsetTop) / anchor.offsetHeight : 0;
     if (!window.matchMedia('(min-width: 700px) and (orientation: landscape)').matches) {
       dashboard.style.height = '';
       monthGrid.style.maxWidth = '';
@@ -130,11 +120,11 @@
     } else {
       dashboard.style.height = window.innerHeight + 'px';
       const feedHeight = Math.max(0, gridSpace.clientHeight - calendarWeekdays.offsetHeight);
-      const cellSize = Math.min(Math.floor(gridSpace.clientWidth / 7), Math.max(26, Math.floor((feedHeight - 28) / 6)));
+      const cellSize = Math.min(Math.floor(gridSpace.clientWidth / 7), Math.max(26, Math.floor((feedHeight - 42) / 6)));
       monthGrid.style.maxWidth = cellSize > 0 ? (cellSize * 7) + 'px' : '';
       feed.style.height = feedHeight > 0 ? feedHeight + 'px' : '';
     }
-    if (anchor) feed.scrollLeft = anchor.offsetLeft + Math.round(fraction * feed.clientWidth);
+    if (anchor) feed.scrollTop = anchor.offsetTop + Math.round(fraction * anchor.offsetHeight);
   }
 
   function entriesFor(day, people) {
@@ -164,7 +154,7 @@
   }
 
   function loadPeopleFilter(account) {
-    filterPage = 0;
+    filterChips.scrollLeft = 0;
     hiddenPeople = [];
     try {
       const saved = JSON.parse(localStorage.getItem(filterStorageKey(account)) || '[]');
@@ -187,14 +177,9 @@
 
   function renderPeopleFilter(people) {
     filterBar.classList.toggle('hidden', !people.length);
-    const lastPage = Math.max(0, Math.ceil(people.length / filterPageSize) - 1);
-    filterPage = Math.max(0, Math.min(filterPage, lastPage));
-    filterPrev.classList.toggle('hidden', lastPage === 0);
-    filterNext.classList.toggle('hidden', lastPage === 0);
-    filterPrev.disabled = filterPage === 0;
-    filterNext.disabled = filterPage === lastPage;
+    const scrollLeft = filterChips.scrollLeft;
     filterChips.textContent = '';
-    people.slice(filterPage * filterPageSize, (filterPage + 1) * filterPageSize).forEach(function (person) {
+    people.forEach(function (person) {
       const button = document.createElement('button');
       const dot = document.createElement('span');
       const name = document.createElement('span');
@@ -215,11 +200,11 @@
         if (index === -1) hiddenPeople.push(person.id);
         else hiddenPeople.splice(index, 1);
         try { localStorage.setItem(filterStorageKey(state.me), JSON.stringify(hiddenPeople)); } catch (_) {}
-        agendaPage = 0;
         render();
       };
       filterChips.appendChild(button);
     });
+    filterChips.scrollLeft = scrollLeft;
   }
 
   function personColor(person) {
@@ -392,9 +377,7 @@
     const year = Math.floor(month / 12);
     const index = month % 12;
     const length = new Date(year, index + 1, 0).getDate();
-    const current = monthIndex(new Date());
-    const firstDay = !showPast && month === current ? Number(today.slice(-2)) : 1;
-    const offset = (new Date(year, index, firstDay).getDay() + 6) % 7;
+    const offset = (new Date(year, index, 1).getDay() + 6) % 7;
     const bandsByDay = [];
     const block = document.createElement('section');
     const title = document.createElement('h4');
@@ -406,30 +389,39 @@
     days.className = 'calendar-days';
     block.appendChild(title);
     block.appendChild(days);
-    for (let day = firstDay; day <= length; day++) {
+    for (let day = 1; day <= length; day++) {
       bandsByDay[day] = calendarDayBands(dayKey(new Date(year, index, day)), orderedPeople, people);
     }
-    const cellCount = Math.ceil((offset + length - firstDay + 1) / 7) * 7;
+    const cellCount = Math.ceil((offset + length) / 7) * 7;
     for (let cell = 0; cell < cellCount; cell++) {
-      const day = cell - offset + firstDay;
+      const day = cell - offset + 1;
+      const date = new Date(year, index, day);
       const square = document.createElement('div');
       square.className = 'calendar-cell';
       days.appendChild(square);
-      if (day < firstDay || day > length) {
+      if (day < 1 || day > length) {
         square.setAttribute('aria-hidden', 'true');
+        const ghost = document.createElement('span');
+        ghost.className = 'calendar-day calendar-ghost';
+        const number = document.createElement('span');
+        number.className = 'calendar-number';
+        number.textContent = date.getDate();
+        ghost.appendChild(number);
+        square.appendChild(ghost);
         continue;
       }
-      const date = new Date(year, index, day);
       const iso = dayKey(date);
       const count = entriesFor(iso, people).length;
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'calendar-day';
+      button.setAttribute('data-date', iso);
       if (iso === today) button.classList.add('calendar-today');
       if (iso < today) button.classList.add('calendar-past');
       if (cell % 7 === 6) button.classList.add('calendar-sunday');
       button.setAttribute('aria-label', iso + (count ? ', событий: ' + count : ''));
       button.setAttribute('aria-pressed', String(iso === activeDay));
+      button.setAttribute('aria-haspopup', 'dialog');
       const following = cell % 7 < 6 && day < length ? bandsByDay[day + 1] : [];
       renderBands(button, square, bandsByDay[day], following, patterns, iso < today);
       const number = document.createElement('span');
@@ -439,8 +431,9 @@
       button.onclick = function () {
         calendarNavigated = true;
         selected = date;
-        agendaPage = 0;
+        agenda.classList.remove('hidden');
         render();
+        agendaClose.focus();
       };
       square.appendChild(button);
     }
@@ -449,33 +442,24 @@
 
   function firstVisibleMonth() {
     const months = feed.querySelectorAll('[data-month]');
-    const middle = feed.scrollLeft + feed.clientWidth / 2;
     let visible = months[0];
     for (let index = 0; index < months.length; index++) {
-      if (months[index].offsetLeft > middle) break;
+      if (months[index].offsetTop > feed.scrollTop + 1) break;
       visible = months[index];
     }
     return visible;
   }
 
-  function updateMonthHeading() {
-    const visible = firstVisibleMonth();
-    const index = visible ? Number(visible.getAttribute('data-month')) : monthIndex(new Date());
-    $('#calendar-month').textContent = monthLabel(index);
-    $('#previous-month').disabled = !showPast && index <= monthIndex(new Date());
-  }
-
   function goToToday() {
     calendarNavigated = false;
     selected = new Date();
-    agendaPage = 0;
     render(monthIndex(selected));
   }
 
   function render(revealMonth) {
     const anchor = firstVisibleMonth();
     const anchorMonth = anchor ? Number(anchor.getAttribute('data-month')) : monthIndex(new Date());
-    const scrollOffset = anchor ? feed.scrollLeft - anchor.offsetLeft : 0;
+    const scrollOffset = anchor ? feed.scrollTop - anchor.offsetTop : 0;
     const currentMonth = monthIndex(new Date());
     if (!showPast) firstMonth = currentMonth;
     lastMonth = Math.max(lastMonth, currentMonth + 2);
@@ -498,32 +482,25 @@
     fitMonth();
     const target = typeof revealMonth === 'number' ? revealMonth : anchorMonth;
     const block = feed.querySelector('[data-month="' + target + '"]');
-    if (block) feed.scrollLeft = block.offsetLeft + (typeof revealMonth === 'number' ? 0 : scrollOffset);
-    updateMonthHeading();
+    if (block) feed.scrollTop = block.offsetTop + (typeof revealMonth === 'number' ? 0 : scrollOffset);
   }
 
   function renderAgenda(people, activeDay) {
-    agenda.classList.toggle('hidden', !state);
-    if (!state) {
-      fitMonth();
-      return;
-    }
+    if (agenda.classList.contains('hidden')) return;
     $('#calendar-day-title').textContent = selected.getDate() + ' ' + months[selected.getMonth()];
     events.textContent = '';
+    if (!state) {
+      events.textContent = 'Подключите «Кто когда» в настройках, чтобы посмотреть дела.';
+      return;
+    }
     const items = entriesFor(activeDay, people).sort(function (a, b) {
       return (a.tf || '').localeCompare(b.tf || '');
     });
-    agendaPage = Math.max(0, Math.min(agendaPage, items.length - 1));
-    agendaPages.classList.toggle('hidden', items.length <= 1);
-    agendaPrev.disabled = agendaPage === 0;
-    agendaNext.disabled = agendaPage >= items.length - 1;
-    $('#agenda-position').textContent = (agendaPage + 1) + ' / ' + items.length;
     if (!items.length) {
       events.textContent = 'На этот день дел нет.';
-      fitMonth();
       return;
     }
-    items.slice(agendaPage, agendaPage + 1).forEach(function (entry) {
+    items.forEach(function (entry) {
       const owner = people[entry.by];
       const participants = visibleEntryPeople(entry, activeDay, people);
       const row = document.createElement('article');
@@ -550,7 +527,6 @@
       row.appendChild(info);
       events.appendChild(row);
     });
-    fitMonth();
   }
 
   function showConnection(message, connected) {
@@ -1042,7 +1018,6 @@
       state.entries.push(data.entry);
       const parts = date.split('-');
       selected = new Date(+parts[0], +parts[1] - 1, +parts[2]);
-      agendaPage = 0;
       const targetMonth = monthIndex(selected);
       if (showPast) firstMonth = Math.min(firstMonth, targetMonth);
       lastMonth = Math.max(lastMonth, targetMonth + 1);
@@ -1205,7 +1180,6 @@
     if (today !== lastToday) {
       if (dayKey(selected) === lastToday) {
         selected = now;
-        agendaPage = 0;
       }
       lastToday = today;
       render();
@@ -1213,68 +1187,37 @@
     syncCalendar(key);
   }
 
-  function shiftMonth(delta) {
-    const visible = firstVisibleMonth();
-    const current = monthIndex(new Date());
-    const target = (visible ? Number(visible.getAttribute('data-month')) : current) + delta;
-    if (target < current && !showPast) return;
-    calendarNavigated = true;
-    if (target < firstMonth) firstMonth -= 2;
-    if (target >= lastMonth) lastMonth += 2;
-    const block = feed.querySelector('[data-month="' + target + '"]');
-    if (block && target !== lastMonth) {
-      feed.scrollLeft = block.offsetLeft;
-      updateMonthHeading();
-    } else render(target);
+  function closeAgenda() {
+    agenda.classList.add('hidden');
+    const day = feed.querySelector('[data-date="' + dayKey(selected) + '"]');
+    (day || feed).focus();
   }
 
-  $('#previous-month').onclick = function () { shiftMonth(-1); };
-  $('#next-month').onclick = function () { shiftMonth(1); };
-  $('#calendar-today-button').onclick = goToToday;
-  agendaPrev.onclick = function () { agendaPage--; render(); };
-  agendaNext.onclick = function () { agendaPage++; render(); };
-  filterPrev.onclick = function () { filterPage--; renderPeopleFilter(availablePeople()); };
-  filterNext.onclick = function () { filterPage++; renderPeopleFilter(availablePeople()); };
-
-  function snapMonthIfNeeded() {
-    if (nativeMonthSnap || calendarTouching) return;
-    clearTimeout(snapTimer);
-    snapTimer = setTimeout(function () {
-      const block = firstVisibleMonth();
-      if (block && !calendarTouching) feed.scrollLeft = block.offsetLeft;
-    }, 160);
-  }
+  $('#calendar-today-button').onclick = function () { goToToday(); setSettingsOpen(false); };
+  agendaClose.onclick = closeAgenda;
+  agenda.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' || event.keyCode === 27) closeAgenda();
+  });
 
   function markCalendarNavigation() { calendarNavigated = true; }
 
   feed.addEventListener('pointerdown', markCalendarNavigation);
   feed.addEventListener('wheel', markCalendarNavigation, { passive: true });
   feed.addEventListener('keydown', markCalendarNavigation);
-  feed.addEventListener('touchstart', function () {
-    markCalendarNavigation();
-    calendarTouching = true;
-    clearTimeout(snapTimer);
-  }, { passive: true });
-  function finishMonthGesture() {
-    calendarTouching = false;
-    snapMonthIfNeeded();
-  }
-  feed.addEventListener('touchend', finishMonthGesture, { passive: true });
-  feed.addEventListener('touchcancel', finishMonthGesture, { passive: true });
+  feed.addEventListener('touchstart', markCalendarNavigation, { passive: true });
   feed.addEventListener('scroll', function () {
-    updateMonthHeading();
-    snapMonthIfNeeded();
-    if (expandingFeed || !calendarNavigated || !feed.clientWidth) return;
-    const left = feed.scrollLeft;
-    const extendPast = showPast && left <= 1;
-    const extendFuture = feed.scrollWidth - feed.clientWidth - left <= 1;
+    if (expandingFeed || !calendarNavigated || !feed.clientHeight) return;
+    const extendPast = showPast && feed.scrollTop <= 48;
+    const extendFuture = feed.scrollHeight - feed.clientHeight - feed.scrollTop <= 48;
     if (!extendPast && !extendFuture) return;
     expandingFeed = true;
     requestAnimationFrame(function () {
       expandingFeed = false;
-      if (Math.abs(feed.scrollLeft - left) > 1) return;
-      if (extendPast && showPast) firstMonth -= 2;
-      if (extendFuture) lastMonth += 2;
+      const past = extendPast && showPast && feed.scrollTop <= 48;
+      const future = extendFuture && feed.scrollHeight - feed.clientHeight - feed.scrollTop <= 48;
+      if (!past && !future) return;
+      if (past) firstMonth -= 2;
+      if (future) lastMonth += 2;
       render();
     });
   }, { passive: true });
@@ -1284,7 +1227,7 @@
     const now = new Date();
     const current = monthIndex(now);
     firstMonth = current - (showPast ? 2 : 0);
-    if (!showPast && dayKey(selected) < dayKey(now)) { selected = now; agendaPage = 0; }
+    if (!showPast && monthIndex(selected) < current) selected = now;
     render(current);
   });
 

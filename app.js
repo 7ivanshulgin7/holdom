@@ -1,6 +1,6 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '23 от 22.11.2026';
+const APP_VER = '24 от 22.11.2026';
 $('#app-version').textContent = 'v' + APP_VER;
 
 function usePointerFocus() { document.documentElement.classList.add('pointer-focus'); }
@@ -28,14 +28,15 @@ const themeKey = 'holdom-theme';
 const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 
 function applyTheme(mode) {
-  const dark = mode === 'dark' || (mode === 'auto' && systemDark.matches);
-  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-  $('meta[name="theme-color"]').content = dark ? '#000000' : '#f2f2f7';
+  const theme = mode === 'auto' ? (systemDark.matches ? 'dark' : 'light') : mode;
+  const root = document.documentElement;
+  root.setAttribute('data-theme', theme);
+  $('meta[name="theme-color"]').content = window.getComputedStyle(root).getPropertyValue('--bg').trim();
 }
 
 try {
   const savedTheme = localStorage.getItem(themeKey);
-  if (savedTheme === 'light' || savedTheme === 'dark') themeSelect.value = savedTheme;
+  if (['light', 'dark', 'olive', 'storm'].indexOf(savedTheme) !== -1) themeSelect.value = savedTheme;
 } catch (_) {}
 applyTheme(themeSelect.value);
 systemDark.addListener(function () { applyTheme(themeSelect.value); });

@@ -7,7 +7,7 @@
   <meta name="description" content="Семейное табло у холодильника">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=23">
+  <link rel="stylesheet" href="style.css?v=24">
   <title>holdom — дома</title>
 </head>
 <body>
@@ -18,6 +18,16 @@
         <span id="app-version" class="app-version"></span>
       </div>
       <div class="screen-actions">
+        <label class="theme-chip" title="Оформление holdom">
+          <span class="theme-chip-dot" aria-hidden="true"></span>
+          <select id="theme-select" aria-label="Оформление holdom">
+            <option value="auto">Системная</option>
+            <option value="light">Светлая</option>
+            <option value="dark">Тёмная</option>
+            <option value="olive">Олива</option>
+            <option value="storm">Шторм</option>
+          </select>
+        </label>
         <button type="button" id="keep-screen-on" class="quiet-button screen-button" aria-pressed="false">Не гасить экран</button>
         <button type="button" id="fullscreen-button" class="quiet-button screen-button" aria-pressed="false">На весь экран</button>
         <button type="button" id="reload-button" class="quiet-button header-icon" title="Обновить" aria-label="Обновить">↻</button>
@@ -69,23 +79,13 @@
         </div>
       </div>
       <div class="right-column">
-        <section class="panel calendar-panel" aria-labelledby="calendar-title">
-          <div class="section-head">
-            <h2 id="calendar-title">Кто когда</h2>
-            <button type="button" id="calendar-today-button" class="quiet-button calendar-today-button">Сегодня</button>
-          </div>
+        <section class="panel calendar-panel" aria-label="Календарь «Кто когда»">
           <p id="calendar-board-status" class="hint" role="status"></p>
           <section id="calendar-settings" class="board-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="calendar-settings-heading">
             <div class="panel dialog-panel">
               <div class="section-head"><h2 id="calendar-settings-heading">Настройки holdom</h2><button type="button" id="calendar-settings-close" class="quiet-button">Закрыть</button></div>
-              <label class="calendar-preference"><input id="show-past-days" type="checkbox"> Показывать прошедшие дни</label>
-              <label class="theme-preference" for="theme-select">Оформление
-                <select id="theme-select">
-                  <option value="auto">Как в системе</option>
-                  <option value="light">Светлое</option>
-                  <option value="dark">Тёмное</option>
-                </select>
-              </label>
+              <label class="calendar-preference"><input id="show-past-days" type="checkbox"> Показывать прошлые месяцы</label>
+              <button type="button" id="calendar-today-button" class="quiet-button">К сегодняшней дате</button>
               <details class="voice-settings">
                 <summary>Облачный Джованни</summary>
                 <form id="voice-server-form">
@@ -121,16 +121,9 @@
             </div>
           </section>
           <div id="calendar-people-filter" class="calendar-people-filter hidden" role="group" aria-label="Чьи дела показывать">
-            <button type="button" id="filter-prev" class="filter-arrow hidden" aria-label="Предыдущие люди">‹</button>
             <div id="filter-chips" class="filter-chips"></div>
-            <button type="button" id="filter-next" class="filter-arrow hidden" aria-label="Следующие люди">›</button>
           </div>
           <div id="calendar-month-view" class="calendar-month-view">
-            <div class="calendar-nav">
-              <button type="button" class="quiet-button" id="previous-month" aria-label="Предыдущий месяц">‹</button>
-              <h3 id="calendar-month"></h3>
-              <button type="button" class="quiet-button" id="next-month" aria-label="Следующий месяц">›</button>
-            </div>
             <div id="calendar-grid-space" class="calendar-grid-space">
               <div id="calendar-grid" class="calendar-grid">
                 <div id="calendar-weekdays" class="calendar-weekdays" aria-hidden="true"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div>
@@ -138,20 +131,18 @@
               </div>
             </div>
           </div>
-          <div id="calendar-agenda" class="hidden">
-            <div class="agenda-head">
-              <h3 id="calendar-day-title"></h3>
-              <div id="agenda-pages" class="agenda-pages hidden">
-                <button type="button" class="quiet-button" id="agenda-prev" aria-label="Предыдущее дело">‹</button>
-                <span id="agenda-position" aria-live="polite"></span>
-                <button type="button" class="quiet-button" id="agenda-next" aria-label="Следующее дело">›</button>
-              </div>
-            </div>
-            <div id="calendar-events" class="event-list"></div>
-          </div>
         </section>
       </div>
     </div>
+    <section id="calendar-agenda" class="board-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="calendar-day-title">
+      <div class="panel dialog-panel">
+        <div class="section-head">
+          <h2 id="calendar-day-title"></h2>
+          <button type="button" id="calendar-day-close" class="quiet-button">Закрыть</button>
+        </div>
+        <div id="calendar-events" class="event-list"></div>
+      </div>
+    </section>
     <div id="note-dialog" class="board-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="note-heading">
       <form id="note-form" class="panel dialog-panel jo-form">
         <div class="section-head">
@@ -186,8 +177,8 @@
     </div>
   </main>
   <video id="screen-video" class="screen-video hidden" preload="none" muted loop playsinline aria-hidden="true"></video>
-  <script src="app.js?v=23"></script>
-  <script src="voice-turn.js?v=23"></script>
-  <script src="calendar.js?v=23"></script>
+  <script src="app.js?v=24"></script>
+  <script src="voice-turn.js?v=24"></script>
+  <script src="calendar.js?v=24"></script>
 </body>
 </html>
