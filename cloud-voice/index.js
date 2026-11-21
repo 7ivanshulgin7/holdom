@@ -9,6 +9,12 @@ const maxOutput = rate * 2 * 8;
 const speechGapMs = 850;
 const chunkBytes = rate * 2 / 10;
 const endSilence = Buffer.alloc(chunkBytes).toString('base64');
+const maxResponseTokens = 512;
+const maxTranscriptLength = 280;
+
+function diagnosticCode(value, fallback) {
+  return typeof value === 'string' && /^[a-z0-9_-]{1,50}$/i.test(value) ? value : fallback;
+}
 
 exports.handler = async function (event, context) {
   const suppliedOrigin = Object.entries(event.headers || {}).find(([name]) => name.toLowerCase() === 'origin');
@@ -125,15 +131,16 @@ function askGiovanni(audio, folder, token, history, actions) {
 
     function finishResponse() {
       if (!completed) return;
-      const action = draftAction(userTranscript, actions);
+      const action = completed.partial ? null : draftAction(userTranscript, actions);
       const draft = action || (actions && actions.reviewing) ? null : completed.draft;
-      if (!draft && !action && !bytes && !transcript) return finish('empty_response');
       const evenBytes = bytes - bytes % 2;
+      if (!draft && !action && !evenBytes && !transcript) return finish(completed.emptyStage);
       const actionText = {
         new_note: 'Открываю заметки.', new_event: 'Открываю форму дела.',
         review_draft: 'Открываю черновик.', discard_draft: 'Отменяю черновик.', save_draft: 'Сохраняю дело.',
       };
-      finish(null, { draft, action, transcript: userTranscript, text: action ? actionText[action] : transcript,
+      const text = completed.partial && transcript ? transcript.slice(0, maxTranscriptLength - 1).trimEnd() + '…' : transcript;
+      finish(null, { draft, action, transcript: userTranscript, text: action ? actionText[action] : text,
         audio: action ? '' : Buffer.concat(chunks, evenBytes).toString('base64'), rate });
     }
 
@@ -154,7 +161,7 @@ function askGiovanni(audio, folder, token, history, actions) {
             'Если дата неясна, уточни её. Ты создаёшь только черновик. Календарь тебе недоступен.' +
             (actions ? ' На экране уже есть черновик. Открытие, отмену и сохранение обрабатывает приложение. Не утверждай, что дело сохранено.' : ''),
           output_modalities: ['audio'],
-          max_output_tokens: 150,
+          max_output_tokens: maxResponseTokens,
           audio: {
             input: { format, turn_detection: { type: 'server_vad', threshold: 0.5, silence_duration_ms: speechGapMs } },
             output: { format, voice: 'anton', role: 'good' },
@@ -228,22 +235,38 @@ function askGiovanni(audio, folder, token, history, actions) {
           bytes += Math.min(chunk.length, remaining);
           break;
         }
+        case 'response.output_audio_transcript.delta':
+          if (typeof message.delta === 'string') transcript = (transcript + message.delta).slice(0, maxTranscriptLength);
+          break;
         case 'response.output_audio_transcript.done':
-          if (typeof message.transcript === 'string') transcript = message.transcript.slice(0, 280);
+          if (typeof message.transcript === 'string' && message.transcript.trim()) {
+            transcript = message.transcript.trim().slice(0, maxTranscriptLength);
+          }
           break;
         case 'response.done': {
           const response = message.response;
-          if (!response || response.status !== 'completed') return finish('incomplete_response');
-          const draft = (Array.isArray(response.output) ? response.output : []).filter(Boolean).map(readDraft).find(Boolean) || null;
-          completed = { draft };
+          const status = diagnosticCode(response?.status, 'unknown');
+          const details = response?.status_details;
+          const reason = diagnosticCode(details?.reason || details?.error?.code || details?.error?.type, '');
+          const stage = 'response_' + status + (reason ? '_' + reason : '');
+          const partial = status === 'incomplete' && !details?.error &&
+            (!details?.reason || details.reason === 'max_output_tokens');
+          if (status !== 'completed' && !partial) return finish(stage);
+          const items = Array.isArray(response.output) ? response.output.filter(Boolean) : [];
+          const draft = partial ? null : items.map(readDraft).find(Boolean) || null;
+          if (!transcript) {
+            const output = items.flatMap(item => Array.isArray(item.content) ? item.content : [])
+              .find(item => item?.type === 'output_audio' && typeof item.transcript === 'string');
+            if (output) transcript = output.transcript.trim().slice(0, maxTranscriptLength);
+          }
+          completed = { draft, partial, emptyStage: partial ? stage : 'empty_response' };
           if (userTranscript) finishResponse();
           else transcriptionTimer = setTimeout(finishResponse, 750);
           break;
         }
         case 'error': {
           const code = message.error?.code || message.error?.type;
-          const safeCode = typeof code === 'string' && /^[a-z0-9_-]{1,50}$/i.test(code) ? code : 'rejected';
-          finish(phase + '_' + safeCode);
+          finish(phase + '_' + diagnosticCode(code, 'rejected'));
           break;
         }
       }
