@@ -258,16 +258,16 @@
     const occupied = Object.create(null);
     items.forEach(function (entry) {
       entryPeople(entry, day, people).forEach(function (person) {
-        if (!occupied[person.id]) occupied[person.id] = entry.id;
+        if (!occupied[person.id]) occupied[person.id] = entry;
       });
     });
     const groups = [];
     orderedPeople.forEach(function (person) {
-      const id = occupied[person.id];
-      if (!id) return;
-      let group = groups.find(function (item) { return item.entry === id; });
+      const entry = occupied[person.id];
+      if (!entry) return;
+      let group = groups.find(function (item) { return item.entry === entry; });
       if (!group) {
-        group = { entry: id, people: [] };
+        group = { entry: entry, people: [] };
         groups.push(group);
       }
       group.people.push(person);
@@ -280,7 +280,7 @@
     let top = 0;
     groups.forEach(function (group) {
       group.people.forEach(function (person, index) {
-        bands.push({ person: person, entry: group.entry, top: top, bottom: top + height,
+        bands.push({ person: person, entry: group.entry.id, title: group.entry.what, top: top, bottom: top + height,
           first: index === 0, last: index === group.people.length - 1 });
         top += height;
       });
@@ -298,7 +298,7 @@
     return element;
   }
 
-  function renderBands(button, square, current, following, patterns, past) {
+  function renderBands(button, square, previous, current, following, patterns, past) {
     if (!current.length) return;
     button.classList.add('calendar-filled');
     const layer = document.createElement('span');
@@ -313,6 +313,16 @@
       color.style.height = (band.bottom - band.top) + '%';
       if (band.first) color.classList.add('band-first');
       if (band.last) color.classList.add('band-last');
+      const alreadyLabeled = previous.some(function (prior) {
+        return prior.person.id === band.person.id && prior.entry === band.entry;
+      });
+      if (band.title && !alreadyLabeled) {
+        const label = document.createElement('span');
+        label.className = 'calendar-band-title';
+        label.textContent = band.title;
+        color.appendChild(label);
+        button.classList.add('calendar-day-with-titles');
+      }
       layer.appendChild(color);
       const continued = following.find(function (next) {
         return next.person.id === band.person.id && next.entry === band.entry;
@@ -447,33 +457,12 @@
       button.setAttribute('aria-pressed', String(iso === activeDay));
       button.setAttribute('aria-haspopup', 'dialog');
       const following = cell % 7 < 6 && day < length ? bandsByDay[day + 1] : [];
-      renderBands(button, square, bandsByDay[day], following, patterns, iso < today);
+      const previous = cell % 7 ? bandsByDay[day - 1] || [] : [];
+      renderBands(button, square, previous, bandsByDay[day], following, patterns, iso < today);
       const number = document.createElement('span');
       number.className = 'calendar-number';
       number.textContent = day;
       button.appendChild(number);
-      const previous = cell % 7 ? itemsByDay[day - 1] || [] : [];
-      const starting = items.filter(function (entry) {
-        return !previous.some(function (other) { return other.id === entry.id; });
-      });
-      if (bandsByDay[day].length) {
-        button.classList.add('calendar-day-with-titles');
-        const titles = document.createElement('span');
-        titles.className = 'calendar-titles';
-        const names = bandsByDay[day].map(function (band) { return band.person.name; }).join(', ');
-        const peopleLabel = document.createElement('span');
-        peopleLabel.textContent = names;
-        titles.appendChild(peopleLabel);
-        if (starting.length) {
-          const eventLabel = document.createElement('span');
-          eventLabel.className = 'calendar-title-events';
-          eventLabel.textContent = starting.map(function (entry) { return entry.what; }).join(', ');
-          titles.appendChild(eventLabel);
-        }
-        titles.setAttribute('aria-hidden', 'true');
-        button.setAttribute('aria-label', button.getAttribute('aria-label') + '. ' + names);
-        button.appendChild(titles);
-      }
       button.onclick = function () {
         calendarNavigated = true;
         selected = date;

@@ -1,6 +1,6 @@
 const $ = s => document.querySelector(s);
 // При выпуске меняйте APP_VER, версию кэша и параметры ?v= вместе.
-const APP_VER = '30 от 22.11.2026';
+const APP_VER = '31 от 22.11.2026';
 $('#app-version').textContent = 'v' + APP_VER;
 
 function usePointerFocus() { document.documentElement.classList.add('pointer-focus'); }
