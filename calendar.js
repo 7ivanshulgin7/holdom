@@ -29,6 +29,8 @@
   const filterBar = $('#calendar-people-filter');
   const filterChips = $('#filter-chips');
   const joAdd = $('#jo-add');
+  const clock = joAdd.querySelector('.clock');
+  const smile = joAdd.querySelector('.jo-smile');
   const joForm = $('#jo-form');
   const joDialog = $('#jo-dialog');
   const joVoice = $('#jo-voice');
@@ -116,20 +118,45 @@
       dashboard.style.height = '';
       monthGrid.style.maxWidth = '';
       feed.style.height = '';
+      clock.style.fontSize = '';
     } else {
       dashboard.style.height = window.innerHeight + 'px';
       const feedHeight = Math.max(0, gridSpace.clientHeight - calendarWeekdays.offsetHeight);
       const cellSize = Math.min(Math.floor(gridSpace.clientWidth / 7), Math.max(26, Math.floor((feedHeight - 42) / 6)));
       monthGrid.style.maxWidth = cellSize > 0 ? (cellSize * 7) + 'px' : '';
       feed.style.height = feedHeight > 0 ? feedHeight + 'px' : '';
+      // Measure the rendered digits so the clock fits both wide and low screens.
+      clock.style.fontSize = '100px';
+      const digitsWidth = Array.prototype.reduce.call(clock.children, function (width, digit) {
+        return width + digit.offsetWidth;
+      }, 12);
+      const availableHeight = joAdd.clientHeight - smile.offsetHeight - 12;
+      const scale = Math.min((joAdd.clientWidth - 12) / digitsWidth, availableHeight / clock.offsetHeight);
+      clock.style.fontSize = Math.floor(Math.max(0.24, scale) * 100) + 'px';
     }
     if (anchor) feed.scrollTop = anchor.offsetTop + Math.round(fraction * anchor.offsetHeight);
   }
 
-  function entriesFor(day, people) {
+  function visibleEntries(people) {
     if (!state) return [];
-    return state.entries.filter(function (entry) {
-      return entry.from <= day && (entry.to || entry.from) >= day && visibleEntryPeople(entry, day, people).length;
+    const entries = [];
+    state.entries.forEach(function (entry) {
+      const owner = entry.by || (entry.who && entry.who[0]);
+      if (hiddenPeople.indexOf(owner) === -1) entries.push(entry);
+      const request = entry.req;
+      if (request && request.st === 'yes' && people[request.to] && request.text) {
+        entries.push({
+          id: entry.id + '~helper', by: request.to, who: [request.to],
+          what: request.text, from: entry.from, to: entry.to, tf: entry.tf, tt: entry.tt
+        });
+      }
+    });
+    return entries;
+  }
+
+  function entriesFor(day, people, entries) {
+    return entries.filter(function (entry) {
+      return entry.from <= day && (entry.to || entry.from) >= day && entryPeople(entry, day, people).length;
     });
   }
 
@@ -139,13 +166,6 @@
       const personalDays = entry.days && entry.days[id];
       return people[id] && (!Array.isArray(personalDays) || personalDays.indexOf(day) !== -1);
     }).map(function (id) { return people[id]; });
-  }
-
-  function visibleEntryPeople(entry, day, people) {
-    const participants = entryPeople(entry, day, people);
-    const helper = entry.req && entry.req.st === 'yes' && people[entry.req.to];
-    if (helper && !participants.some(function (person) { return person.id === helper.id; })) participants.push(helper);
-    return participants;
   }
 
   function filterStorageKey(account) {
@@ -234,14 +254,12 @@
     return patterns;
   }
 
-  function calendarDayBands(day, orderedPeople, people) {
+  function calendarDayBands(day, orderedPeople, people, items) {
     const occupied = Object.create(null);
-    entriesFor(day, people).forEach(function (entry) {
+    items.forEach(function (entry) {
       entryPeople(entry, day, people).forEach(function (person) {
         if (!occupied[person.id]) occupied[person.id] = entry.id;
       });
-      const helper = entry.req && entry.req.st === 'yes' && people[entry.req.to];
-      if (helper && !occupied[helper.id]) occupied[helper.id] = entry.id + '~helper';
     });
     const groups = [];
     orderedPeople.forEach(function (person) {
@@ -314,7 +332,7 @@
   }
 
   function nextVisibleDay(entry, earliest, people) {
-    if (visibleEntryPeople(entry, earliest, people).length) return earliest;
+    if (entryPeople(entry, earliest, people).length) return earliest;
     let first = '';
     Object.keys(entry.days || {}).forEach(function (id) {
       if (!people[id] || (entry.who || []).indexOf(id) === -1 || !Array.isArray(entry.days[id])) return;
@@ -325,7 +343,7 @@
     return first;
   }
 
-  function renderNearest(people) {
+  function renderNearest(people, entries) {
     nearestItems.textContent = '';
     if (!state) {
       const empty = document.createElement('li');
@@ -337,7 +355,7 @@
     const today = dayKey(now);
     const localTime = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
     const upcoming = [];
-    state.entries.forEach(function (entry) {
+    entries.forEach(function (entry) {
       const end = entry.to || entry.from;
       if (!entry.from || end < today) return;
       let start = entry.from < today ? today : entry.from;
@@ -355,7 +373,7 @@
       const date = item.day.split('-');
       const details = [item.day === today ? 'Сегодня' : (+date[2] + ' ' + months[+date[1] - 1])];
       if (item.entry.tf) details.push(item.entry.tf + (item.entry.tt ? '–' + item.entry.tt : ''));
-      const names = visibleEntryPeople(item.entry, item.day, people).map(function (person) { return person.name; });
+      const names = entryPeople(item.entry, item.day, people).map(function (person) { return person.name; });
       if (names.length) details.push(names.join(', '));
       title.textContent = item.entry.what;
       title.title = item.entry.what;
@@ -376,12 +394,13 @@
     return monthNames[index % 12] + ' ' + Math.floor(index / 12);
   }
 
-  function renderMonthBlock(month, today, activeDay, orderedPeople, people, patterns) {
+  function renderMonthBlock(month, today, activeDay, orderedPeople, people, patterns, entries) {
     const year = Math.floor(month / 12);
     const index = month % 12;
     const length = new Date(year, index + 1, 0).getDate();
     const offset = (new Date(year, index, 1).getDay() + 6) % 7;
     const bandsByDay = [];
+    const itemsByDay = [];
     const block = document.createElement('section');
     const title = document.createElement('h4');
     const days = document.createElement('div');
@@ -393,7 +412,9 @@
     block.appendChild(title);
     block.appendChild(days);
     for (let day = 1; day <= length; day++) {
-      bandsByDay[day] = calendarDayBands(dayKey(new Date(year, index, day)), orderedPeople, people);
+      const iso = dayKey(new Date(year, index, day));
+      itemsByDay[day] = entriesFor(iso, people, entries);
+      bandsByDay[day] = calendarDayBands(iso, orderedPeople, people, itemsByDay[day]);
     }
     const cellCount = Math.ceil((offset + length) / 7) * 7;
     for (let cell = 0; cell < cellCount; cell++) {
@@ -414,7 +435,7 @@
         continue;
       }
       const iso = dayKey(date);
-      const items = entriesFor(iso, people);
+      const items = itemsByDay[day];
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'calendar-day';
@@ -431,12 +452,16 @@
       number.className = 'calendar-number';
       number.textContent = day;
       button.appendChild(number);
-      if (items.length) {
+      const previous = cell % 7 ? itemsByDay[day - 1] || [] : [];
+      const starting = items.filter(function (entry) {
+        return !previous.some(function (other) { return other.id === entry.id; });
+      });
+      if (starting.length) {
         button.classList.add('calendar-day-with-titles');
         const titles = document.createElement('span');
         titles.className = 'calendar-titles';
         titles.setAttribute('aria-hidden', 'true');
-        items.slice(0, 2).forEach(function (entry) {
+        starting.slice(0, 2).forEach(function (entry) {
           const label = document.createElement('span');
           label.textContent = entry.what;
           titles.appendChild(label);
@@ -486,14 +511,15 @@
     orderedPeople.forEach(function (person) { people[person.id] = person; });
     const patterns = calendarPatterns(everyone);
     renderPeopleFilter(everyone);
-    renderNearest(people);
+    const entries = visibleEntries(people);
+    renderNearest(people, entries);
     const contents = document.createDocumentFragment();
     for (let index = firstMonth; index <= lastMonth; index++) {
-      contents.appendChild(renderMonthBlock(index, today, activeDay, orderedPeople, people, patterns));
+      contents.appendChild(renderMonthBlock(index, today, activeDay, orderedPeople, people, patterns, entries));
     }
     feed.textContent = '';
     feed.appendChild(contents);
-    renderAgenda(people, activeDay);
+    renderAgenda(people, activeDay, entries);
     fitMonth();
     const target = typeof revealMonth === 'number' ? revealMonth : anchorMonth;
     const block = feed.querySelector('[data-month="' + target + '"]');
@@ -503,7 +529,7 @@
     } else if (block) feed.scrollTop = block.offsetTop + (typeof revealMonth === 'number' ? 0 : scrollOffset);
   }
 
-  function renderAgenda(people, activeDay) {
+  function renderAgenda(people, activeDay, entries) {
     if (agenda.classList.contains('hidden')) return;
     $('#calendar-day-title').textContent = selected.getDate() + ' ' + months[selected.getMonth()];
     events.textContent = '';
@@ -511,7 +537,7 @@
       events.textContent = 'Подключите «Кто когда» в настройках, чтобы посмотреть дела.';
       return;
     }
-    const items = entriesFor(activeDay, people).sort(function (a, b) {
+    const items = entriesFor(activeDay, people, entries).sort(function (a, b) {
       return (a.tf || '').localeCompare(b.tf || '');
     });
     if (!items.length) {
@@ -520,7 +546,7 @@
     }
     items.forEach(function (entry) {
       const owner = people[entry.by];
-      const participants = visibleEntryPeople(entry, activeDay, people);
+      const participants = entryPeople(entry, activeDay, people);
       const row = document.createElement('article');
       row.className = 'event';
       const time = document.createElement('div');

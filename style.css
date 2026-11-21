@@ -92,14 +92,12 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
 }
 .clock-eye {
   display: block;
+  flex-shrink: 0;
   min-width: 0;
   padding: .09em .11em .12em .06em;
-  border-radius: 22px;
-  background: var(--cell);
   animation: clock-eyes 21s ease-in-out infinite;
 }
 .clock-face.is-listening .clock-eye, .clock-face.is-working .clock-eye {
-  background: var(--accent-soft);
   color: var(--accent-ink);
   animation: clock-active-eyes 4.5s ease-in-out infinite;
 }
@@ -195,8 +193,6 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
 .hero {
   padding: 24px 18px 26px;
   margin-bottom: 12px;
-  border-radius: 24px;
-  background: var(--card);
   text-align: center;
 }
 .clock {
@@ -400,10 +396,17 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
   }
   .left-column > * + * { margin-top: 8px; }
   .left-column > .hero, .left-column > .jo-chat { display: flex; flex-direction: column; }
-  .left-column > .hero { justify-content: center; }
+  .left-column > .hero { padding-right: 0; padding-left: 0; }
+  .hero > .clock-face {
+    display: flex;
+    flex: 1 1 0px;
+    min-height: 0;
+    flex-direction: column;
+    justify-content: center;
+  }
   .jo-chat-messages { flex: 1 1 auto; min-height: 0; max-height: none; }
   .jo-chat-actions, #jo-chat-status { flex-shrink: 0; }
-  .clock { font-size: 8vw; }
+
   .nearest-panel h2 { font-size: 18px; }
   .nearest-panel strong { font-size: 28px; line-height: 1.12; }
   .nearest-panel small { font-size: 18px; line-height: 1.2; }
@@ -433,11 +436,8 @@ button:focus, input:focus, select:focus, textarea:focus { outline: 2px solid var
   }
   .event-info { flex: 1; }
 }
-@media (min-width: 1250px) and (orientation: landscape) {
-  .clock { font-size: 102px; }
-}
 @media (min-width: 700px) and (max-height: 520px) and (orientation: landscape) {
-  .clock { font-size: 64px; }
+
   .calendar-day-with-titles .calendar-number { line-height: 13px; font-size: 11px; }
   .calendar-titles { top: auto; right: 2px; bottom: 0; left: 2px; line-height: 10px; }
   .calendar-titles span + span { display: none; }
