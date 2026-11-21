@@ -28,7 +28,7 @@ exports.handler = async function (event, context) {
     };
   }
 
-  if (event.httpMethod !== 'POST') return reply(405, { error: 'method', revision: 'server-vad' });
+  if (event.httpMethod !== 'POST') return reply(405, { error: 'method', revision: 'voice-retry-1' });
   if (suppliedOrigin?.[1] !== origin) return reply(403, { error: 'origin' });
   const code = process.env.HOLDOM_VOICE_CODE;
   const folder = process.env.YANDEX_FOLDER_ID;
@@ -91,7 +91,20 @@ function draftAction(transcript, actions) {
   return null;
 }
 
-function askGiovanni(audio, folder, token, history, actions) {
+async function askGiovanni(audio, folder, token, history, actions) {
+  const timeoutMs = 17000;
+  const deadline = Date.now() + timeoutMs;
+  try {
+    return await requestGiovanni(audio, folder, token, history, actions, timeoutMs);
+  } catch (error) {
+    const remainingMs = deadline - Date.now();
+    if (!error.retryable || remainingMs < 4000) throw error;
+    console.warn('Giovanni reconnect:', error.stage);
+    return requestGiovanni(audio, folder, token, history, actions, remainingMs);
+  }
+}
+
+function requestGiovanni(audio, folder, token, history, actions, timeoutMs) {
   const url = new URL('wss://ai.api.cloud.yandex.net/v1/realtime/openai');
   url.searchParams.set('model', 'gpt://' + folder + '/speech-realtime-deepseek-v4-flash');
   const date = new Intl.DateTimeFormat('sv-SE', { dateStyle: 'short', timeZone: 'Europe/Moscow' }).format(new Date());
@@ -101,10 +114,10 @@ function askGiovanni(audio, folder, token, history, actions) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(url, {
       headers: { Authorization: 'Bearer ' + token },
-      handshakeTimeout: 6000,
+      handshakeTimeout: Math.min(6000, timeoutMs),
       maxPayload: 1_048_576,
     });
-    const timer = setTimeout(() => finish(phase + '_timeout'), 17000);
+    const timer = setTimeout(() => finish(phase + '_timeout'), timeoutMs);
     let transcriptionTimer;
     const chunks = [];
     let bytes = 0;
@@ -115,13 +128,13 @@ function askGiovanni(audio, folder, token, history, actions) {
     let phase = 'handshake';
     let finished = false;
 
-    function finish(stage, result) {
+    function finish(stage, result, retryable = false) {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
       clearTimeout(transcriptionTimer);
       socket.terminate();
-      if (stage) reject(Object.assign(new Error('Realtime failed'), { stage }));
+      if (stage) reject(Object.assign(new Error('Realtime failed'), { stage, retryable }));
       else resolve(result);
     }
 
@@ -144,10 +157,19 @@ function askGiovanni(audio, folder, token, history, actions) {
 
     socket.on('unexpected-response', (_, response) => {
       response.resume();
-      finish('handshake_' + response.statusCode);
+      const code = response.statusCode;
+      finish('handshake_' + code, null, [502, 503, 504].includes(code));
     });
-    socket.on('error', () => finish(phase + '_connection'));
-    socket.on('close', code => finish(phase + '_closed_' + code));
+    socket.on('error', error => {
+      if (completed) return finishResponse();
+      const code = diagnosticCode(error?.code, '').toLowerCase();
+      const retryable = !code || ['econnreset', 'epipe', 'etimedout', 'econnaborted', 'econnrefused', 'eai_again'].includes(code);
+      finish(phase + '_connection' + (code ? '_' + code : ''), null, retryable);
+    });
+    socket.on('close', code => {
+      if (completed) return finishResponse();
+      finish(phase + '_closed_' + code, null, [1000, 1001, 1006, 1011, 1012, 1013].includes(code));
+    });
     socket.on('open', () => {
       phase = 'session';
       send({
@@ -184,6 +206,7 @@ function askGiovanni(audio, folder, token, history, actions) {
     });
 
     socket.on('message', body => {
+      if (finished) return;
       let message;
       try { message = JSON.parse(body.toString()); } catch { return finish('invalid_response'); }
       switch (message.type) {
